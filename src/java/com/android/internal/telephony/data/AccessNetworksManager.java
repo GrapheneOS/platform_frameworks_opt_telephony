@@ -49,6 +49,7 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
+import android.util.PackageUtils;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.Phone;
@@ -486,6 +487,10 @@ public class AccessNetworksManager extends Handler {
             }
         } catch (RuntimeException e) {
             loge("Carrier config loader is not available.");
+        }
+
+        if (!PackageUtils.isSystemPackage(mPhone.getContext(), packageName)) {
+            return "";
         }
 
         return packageName;
