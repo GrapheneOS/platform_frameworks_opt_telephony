@@ -55,6 +55,7 @@ import android.telephony.data.IDataServiceCallback;
 import android.telephony.data.NetworkSliceInfo;
 import android.telephony.data.TrafficDescriptor;
 import android.text.TextUtils;
+import android.util.PackageUtils;
 import android.util.Pair;
 
 import com.android.internal.telephony.IIntegerConsumer;
@@ -592,6 +593,10 @@ public class DataServiceManager extends Handler {
         if (!b.isEmpty() && !TextUtils.isEmpty(b.getString(carrierConfig))) {
             // If carrier config overrides it, use the one from carrier config
             packageName = b.getString(carrierConfig, packageName);
+        }
+
+        if (!PackageUtils.isSystemPackage(mPhone.getContext(), packageName)) {
+            return "";
         }
 
         return packageName;
