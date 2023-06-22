@@ -36,6 +36,7 @@ import android.telephony.NetworkRegistrationInfo;
 import android.telephony.NetworkService;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
+import android.util.PackageUtils;
 
 import com.android.telephony.Rlog;
 
@@ -317,6 +318,10 @@ public class NetworkRegistrationManager extends Handler {
         if (!b.isEmpty() && !TextUtils.isEmpty(b.getString(carrierConfig))) {
             // If carrier config overrides it, use the one from carrier config
             packageName = b.getString(carrierConfig, packageName);
+        }
+
+        if (!PackageUtils.isSystemPackage(mPhone.getContext(), packageName)) {
+            return "";
         }
 
         return packageName;
