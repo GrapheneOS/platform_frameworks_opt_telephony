@@ -24,6 +24,7 @@ import android.os.Message;
 import android.os.UserHandle;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.util.PackageUtils;
 
 import com.android.internal.R;
 import com.android.internal.telephony.TelephonyIntents;
@@ -55,9 +56,12 @@ public class UiccStateChangedLauncher extends Handler {
     public UiccStateChangedLauncher(Context context, UiccController controller,
             @NonNull FeatureFlags flags) {
         mFeatureFlags = flags;
-        sDeviceProvisioningPackage = context.getResources().getString(
-                R.string.config_deviceProvisioningPackage);
-        if (sDeviceProvisioningPackage != null && !sDeviceProvisioningPackage.isEmpty()) {
+        String pkg = context.getResources().getString(R.string.config_deviceProvisioningPackage);
+        if (!PackageUtils.isSystemPackage(context, pkg)) {
+            pkg = "";
+        }
+        sDeviceProvisioningPackage = pkg;
+        if (!pkg.isEmpty()) {
             mContext = context;
             mUiccController = controller;
             mUiccController.registerForIccChanged(this, EVENT_ICC_CHANGED, null);
