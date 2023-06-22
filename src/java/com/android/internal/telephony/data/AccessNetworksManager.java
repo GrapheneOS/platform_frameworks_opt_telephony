@@ -53,6 +53,7 @@ import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
+import android.util.PackageUtils;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.Phone;
@@ -600,6 +601,10 @@ public class AccessNetworksManager extends Handler {
                 if (DBG) log("Found carrier config override " + carrierConfigPackageName);
                 packageName = carrierConfigPackageName;
             }
+        }
+
+        if (!PackageUtils.isSystemPackage(mPhone.getContext(), packageName)) {
+            return "";
         }
 
         return packageName;
