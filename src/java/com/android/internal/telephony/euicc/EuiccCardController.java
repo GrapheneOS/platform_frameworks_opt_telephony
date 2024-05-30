@@ -703,8 +703,11 @@ public class EuiccCardController extends IEuiccCardController.Stub {
 
     @Override
     public void resetMemory(String callingPackage, String cardId,
-            @EuiccCardManager.ResetOption int options, IResetMemoryCallback callback) {
+            @EuiccCardManager.ResetOption int options, IResetMemoryCallback callback, int flags) {
         if (Binder.getCallingUid() != Process.SYSTEM_UID) {
+            if (flags != 0) {
+                throw new SecurityException("only SYSTEM_UID is allowed to use flags");
+            }
             try {
                 checkCallingPackage(callingPackage);
             } catch (SecurityException se) {
@@ -732,9 +735,15 @@ public class EuiccCardController extends IEuiccCardController.Stub {
         AsyncResultCallback<Void> cardCb = new AsyncResultCallback<Void>() {
             @Override
             public void onResult(Void result) {
-                Log.i(TAG, "Request subscription info list refresh after reset memory.");
-                SubscriptionManagerService.getInstance().updateEmbeddedSubscriptions(
-                        List.of(mUiccController.convertToPublicCardId(cardId)), null);
+                if ((flags & EuiccCardManager.RESET_FLAG_IS_FOR_DURESS_WIPE) == 0) {
+                    // if eUICC LPA is present, then updateEmbeddedSubscriptions() notifies it
+                    // to send eSIM removal notification to the carrier, which is undesirable
+                    // when a duress wipe is being performed
+                    Log.i(TAG, "Request subscription info list refresh after reset memory.");
+                    SubscriptionManagerService.getInstance().updateEmbeddedSubscriptions(
+                            List.of(mUiccController.convertToPublicCardId(cardId)), null);
+                }
+
                 try {
                     callback.onComplete(EuiccCardManager.RESULT_OK);
                 } catch (RemoteException exception) {
