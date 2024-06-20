@@ -391,9 +391,12 @@ public class PhoneConfigurationManager {
                             }
                             mSlotsSupportingSimultaneousCellularCalls.add(i);
                         }
-                        // Ensure the slots supporting cellular DSDA does not exceed the phone count
-                        if (mSlotsSupportingSimultaneousCellularCalls.size() > getPhoneCount()) {
-                            loge("Invalid size of DSDA slots. Disabling cellular DSDA.");
+                        // Ensure the number of slots supporting cellular DSDA is valid:
+                        if (mSlotsSupportingSimultaneousCellularCalls.size() > getPhoneCount() ||
+                                mSlotsSupportingSimultaneousCellularCalls.size() < 2) {
+                            loge("Invalid size of DSDA slots. Disabling cellular DSDA. Size of "
+                                    + "mSlotsSupportingSimultaneousCellularCalls=" +
+                                    mSlotsSupportingSimultaneousCellularCalls.size());
                             mSlotsSupportingSimultaneousCellularCalls.clear();
                         }
                     } else {
