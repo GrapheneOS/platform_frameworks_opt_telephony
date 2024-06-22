@@ -21,6 +21,17 @@ flag {
 
 # OWNER=stevestatia TARGET=24Q4
 flag {
+    name: "national_country_code_formatting_for_local_calls"
+    namespace: "telephony"
+    description: "Make requests and bug fixes for formatting local calls based on country codes easier with a more scalable solution."
+    bug: "293993310"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}
+
+# OWNER=stevestatia TARGET=24Q4
+flag {
     name: "remove_country_code_from_local_singapore_calls"
     namespace: "telephony"
     description: "Fix bug where the country code is being shown when merging in local Singapore numbers to conference calls."

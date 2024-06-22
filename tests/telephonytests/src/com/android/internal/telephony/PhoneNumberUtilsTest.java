@@ -675,6 +675,43 @@ public class PhoneNumberUtilsTest {
 
     @SmallTest
     @Test
+    public void testFormatTaiwanNational() {
+        // Disable feature flag.
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "TW"));
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "tw"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "TW"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "tw"));
+
+        // Enable feature flag.
+        mSetFlagsRule.enableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+        assertEquals("02 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "TW"));
+        assertEquals("02 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "tw"));
+        assertEquals("0988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "TW"));
+        assertEquals("0988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "tw"));
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+    }
+
+    @SmallTest
+    @Test
+    public void testFormatTaiwanInternational() {
+        // Disable feature flag.
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "US"));
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "us"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "US"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "us"));
+
+        mSetFlagsRule.enableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "US"));
+        assertEquals("+886 2 8729 6000", PhoneNumberUtils.formatNumber("+886287296000", "us"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "US"));
+        assertEquals("+886 988 102 544", PhoneNumberUtils.formatNumber("+886988102544", "us"));
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
+    }
+
+    @SmallTest
+    @Test
     public void testFormatNumber_LeadingStarAndHash() {
         // Numbers with a leading '*' or '#' should be left unchanged.
         assertEquals("*650 2910000", PhoneNumberUtils.formatNumber("*650 2910000", "US"));
