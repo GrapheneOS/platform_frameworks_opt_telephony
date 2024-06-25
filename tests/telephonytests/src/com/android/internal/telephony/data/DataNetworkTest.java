@@ -2421,6 +2421,10 @@ public class DataNetworkTest extends TelephonyTest {
         doReturn(true).when(mFeatureFlags).forceIwlanMms();
         setupDataNetwork();
 
+        TelephonyNetworkAgent mockNetworkAgent = Mockito.mock(TelephonyNetworkAgent.class);
+        replaceInstance(DataNetwork.class, "mNetworkAgent",
+                mDataNetworkUT, mockNetworkAgent);
+
         assertThat(mDataNetworkUT.getNetworkCapabilities()
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_MMS)).isTrue();
 
@@ -2465,11 +2469,13 @@ public class DataNetworkTest extends TelephonyTest {
                 .onPreferredTransportChanged(NetworkCapabilities.NET_CAPABILITY_MMS, false);
         processAllMessages();
 
-        // Check if MMS capability is removed.
+        // Check if MMS capability is removed, and we don't recreat network agent which triggers
+        // powering comsuming internet validation.
         assertThat(mDataNetworkUT.getNetworkCapabilities()
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_MMS)).isFalse();
+        verify(mockNetworkAgent, never()).abandon();
 
-        // Now QNS prefers MMS on IWLAN
+        // Now QNS prefers MMS on WWAN
         doReturn(AccessNetworkConstants.TRANSPORT_TYPE_WWAN).when(mAccessNetworksManager)
             .getPreferredTransportByNetworkCapability(NetworkCapabilities.NET_CAPABILITY_MMS);
         accessNetworksManagerCallbackArgumentCaptor.getValue()

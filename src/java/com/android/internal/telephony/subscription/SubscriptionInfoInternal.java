@@ -1430,7 +1430,7 @@ public class SubscriptionInfoInternal {
                 && mServiceCapabilities == that.mServiceCapabilities
                 && mTransferStatus == that.mTransferStatus
                 && mIsSatelliteEntitlementStatus == that.mIsSatelliteEntitlementStatus
-                && mSatelliteEntitlementPlmns == that.mSatelliteEntitlementPlmns;
+                && mSatelliteEntitlementPlmns.equals(that.mSatelliteEntitlementPlmns);
     }
 
     @Override
