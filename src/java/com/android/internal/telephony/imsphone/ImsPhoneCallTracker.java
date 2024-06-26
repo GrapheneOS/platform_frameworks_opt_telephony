@@ -2878,6 +2878,14 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
         ImsPhoneConnection conn = findConnection(imsCall);
         boolean rejectCall = false;
 
+        if (mFeatureFlags.preventHangupDuringCallMerge()) {
+            if (imsCall.isCallSessionMergePending()) {
+                if (DBG) log("hangup call failed during call merge");
+
+                throw new CallStateException("can not hangup during call merge");
+            }
+        }
+
         String logResult = "(undefined)";
         if (call == mRingingCall) {
             logResult = "(ringing) hangup incoming";

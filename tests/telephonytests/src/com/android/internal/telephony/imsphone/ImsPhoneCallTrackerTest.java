@@ -2774,6 +2774,32 @@ public class ImsPhoneCallTrackerTest extends TelephonyTest {
         assertNetworkStatsEquals(expectedStats, uidStatsCaptor.getValue());
     }
 
+    @Test
+    public void testPreventHangupDuringCallMerge() {
+        // Enable feature flag
+        doReturn(true).when(mFeatureFlags).preventHangupDuringCallMerge();
+
+        // Change carrier config to allow call hold for 2nd call setup
+        PersistableBundle bundle = mContextFixture.getCarrierConfigBundle();
+        bundle.putBoolean(CarrierConfigManager.KEY_ALLOW_HOLD_VIDEO_CALL_BOOL, true);
+        mCTUT.updateCarrierConfigCache(bundle);
+
+        // Place a call.
+        placeCallAndMakeActive();
+        // Place a 2nd call
+        ImsPhoneConnection imsPhoneConnection = placeCallAndMakeActive();
+
+        // Try call merge
+        mCTUT.conference();
+
+        try {
+            mCTUT.hangup(imsPhoneConnection.getCall());
+            fail("Expect CallStateException but not");
+        } catch  (CallStateException e) {
+            // Expected exception
+        }
+    }
+
     private ImsPhoneConnection placeCallAndMakeActive() {
         ImsPhoneConnection connection = placeCall();
         ImsCall imsCall = connection.getImsCall();
