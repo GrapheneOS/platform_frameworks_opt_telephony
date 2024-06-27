@@ -42,3 +42,12 @@ flag {
     description: "This flag enables satellite carrier roaming to nb iot ntn."
     bug:"348253735"
 }
+
+# OWNER=tnd TARGET=24Q4
+flag {
+    name: "oem_enabled_satellite_phase_2"
+    is_exported: true
+    namespace: "telephony"
+    description: "This flag controls satellite communication supported by OEMs in phase 2."
+    bug:"349624547"
+}

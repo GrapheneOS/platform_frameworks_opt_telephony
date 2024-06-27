@@ -327,8 +327,14 @@ public class SatelliteServiceUtils {
     @NonNull
     public static List<String> mergeStrLists(List<String> strList1, List<String> strList2) {
         Set<String> mergedStrSet = new HashSet<>();
-        mergedStrSet.addAll(strList1);
-        mergedStrSet.addAll(strList2);
+        if (strList1 != null) {
+            mergedStrSet.addAll(strList1);
+        }
+
+        if (strList2 != null) {
+            mergedStrSet.addAll(strList2);
+        }
+
         return mergedStrSet.stream().toList();
     }
 
