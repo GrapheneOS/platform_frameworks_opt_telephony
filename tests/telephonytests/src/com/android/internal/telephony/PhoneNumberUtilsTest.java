@@ -628,6 +628,7 @@ public class PhoneNumberUtilsTest {
     public void testFormatSingaporeInternational() {
         // Disable feature flag.
         mSetFlagsRule.disableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
+        mSetFlagsRule.enableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
 
         // International call from a US iso
         assertEquals("+65 6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "US"));
@@ -636,6 +637,7 @@ public class PhoneNumberUtilsTest {
         assertEquals("+65 6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "us"));
 
         // Enable feature flag
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
         mSetFlagsRule.enableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
 
         // Internal call from a US iso
@@ -644,6 +646,7 @@ public class PhoneNumberUtilsTest {
         // Lowercase country iso
         assertEquals("+65 6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "us"));
         mSetFlagsRule.disableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
     }
 
     /**
@@ -655,14 +658,16 @@ public class PhoneNumberUtilsTest {
     public void testFormatSingaporeNational() {
         // Disable feature flag.
         mSetFlagsRule.disableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
+        mSetFlagsRule.enableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
 
         // Local call from a Singaporean number to a Singaporean number
-        assertEquals("+65 6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "SG"));
+        assertEquals("6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "SG"));
 
         // Lowercase country iso.
-        assertEquals("+65 6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "sg"));
+        assertEquals("6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "sg"));
 
         // Enable feature flag.
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
         mSetFlagsRule.enableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
 
         // Local call from a Singaporean number to a Singaporean number.
@@ -671,6 +676,7 @@ public class PhoneNumberUtilsTest {
         // Lowercase country iso.
         assertEquals("6521 8000", PhoneNumberUtils.formatNumber("+6565218000", "sg"));
         mSetFlagsRule.disableFlags(Flags.FLAG_REMOVE_COUNTRY_CODE_FROM_LOCAL_SINGAPORE_CALLS);
+        mSetFlagsRule.disableFlags(Flags.FLAG_NATIONAL_COUNTRY_CODE_FORMATTING_FOR_LOCAL_CALLS);
     }
 
     @SmallTest

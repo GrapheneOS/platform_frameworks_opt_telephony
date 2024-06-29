@@ -1009,6 +1009,7 @@ public class SatelliteController extends Handler {
                     if (argument.enableSatellite) {
                         synchronized (mSatelliteEnabledRequestLock) {
                             mWaitingForRadioDisabled = true;
+                            setDemoModeEnabled(argument.enableDemoMode);
                         }
                         setSettingsKeyForSatelliteMode(SATELLITE_MODE_ENABLED_TRUE);
                         setSettingsKeyToAllowDeviceRotation(SATELLITE_MODE_ENABLED_TRUE);
@@ -3753,7 +3754,6 @@ public class SatelliteController extends Handler {
             if (areAllRadiosDisabled() && (mSatelliteEnabledRequest != null)
                     && mWaitingForRadioDisabled) {
                 plogd("Sending success to callback that sent enable satellite request");
-                setDemoModeEnabled(mSatelliteEnabledRequest.enableDemoMode);
                 mIsEmergency = mSatelliteEnabledRequest.isEmergency;
                 synchronized (mIsSatelliteEnabledLock) {
                     mIsSatelliteEnabled = mSatelliteEnabledRequest.enableSatellite;
@@ -4628,15 +4628,7 @@ public class SatelliteController extends Handler {
                 mSessionStartTimeStamp = 0;
                 mSessionProcessingTimeStamp = 0;
             } else {
-                /*
-                 * Unregister Importance Listener for Pointing UI when Satellite is disabled
-                 */
-                synchronized (mNeedsSatellitePointingLock) {
-                    if (mNeedsSatellitePointing) {
-                        mPointingAppController.removeListenerForPointingUI();
-                    }
-                }
-                moveSatelliteToOffStateAndCleanUpResources(SATELLITE_RESULT_MODEM_TIMEOUT, null);
+                notifyEnablementFailedToSatelliteSessionController();
                 mControllerMetricsStats.onSatelliteDisabled();
                 mWaitingForDisableSatelliteModemResponse = false;
                 mWaitingForSatelliteModemOff = false;

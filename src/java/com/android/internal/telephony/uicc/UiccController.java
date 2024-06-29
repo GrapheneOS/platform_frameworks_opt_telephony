@@ -780,9 +780,10 @@ public class UiccController extends Handler {
         intent.putExtra(PhoneConstants.PHONE_NAME_KEY, "Phone");
         intent.putExtra(IccCardConstants.INTENT_KEY_ICC_STATE, state);
         intent.putExtra(IccCardConstants.INTENT_KEY_LOCKED_REASON, reason);
-        SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
+        int subId = SubscriptionManager.getSubscriptionId(phoneId);
+        SubscriptionManager.putPhoneIdAndMaybeSubIdExtra(intent, phoneId, subId);
         Rlog.d(LOG_TAG, "Broadcasting intent ACTION_SIM_STATE_CHANGED " + state + " reason "
-                + reason + " for phone: " + phoneId);
+                + reason + " for phone: " + phoneId + " sub: " + subId);
         IntentBroadcaster.getInstance().broadcastStickyIntent(mContext, intent, phoneId);
     }
 
@@ -798,7 +799,8 @@ public class UiccController extends Handler {
             Intent intent = new Intent(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
             intent.putExtra(TelephonyManager.EXTRA_SIM_STATE, state);
-            SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
+            int subId = SubscriptionManager.getSubscriptionId(phoneId);
+            SubscriptionManager.putPhoneIdAndMaybeSubIdExtra(intent, phoneId, subId);
             // TODO(b/130664115) we manually populate this intent with the slotId. In the future we
             // should do a review of whether to make this public
             UiccSlot slot = UiccController.getInstance().getUiccSlotForPhone(phoneId);
@@ -811,7 +813,7 @@ public class UiccController extends Handler {
             }
             Rlog.d(LOG_TAG, "Broadcasting intent ACTION_SIM_CARD_STATE_CHANGED "
                     + TelephonyManager.simStateToString(state) + " for phone: " + phoneId
-                    + " slot: " + slotId + " port: " + portIndex);
+                    + " slot: " + slotId + " port: " + portIndex + " sub: " + subId);
             mContext.sendBroadcast(intent, Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
             TelephonyMetrics.getInstance().updateSimState(phoneId, state);
         }
@@ -838,7 +840,8 @@ public class UiccController extends Handler {
             Intent intent = new Intent(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
             intent.putExtra(TelephonyManager.EXTRA_SIM_STATE, state);
-            SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
+            int subId = SubscriptionManager.getSubscriptionId(phoneId);
+            SubscriptionManager.putPhoneIdAndMaybeSubIdExtra(intent, phoneId, subId);
             // TODO(b/130664115) we populate this intent with the actual slotId. In the future we
             // should do a review of whether to make this public
             UiccSlot slot = UiccController.getInstance().getUiccSlotForPhone(phoneId);
@@ -849,8 +852,8 @@ public class UiccController extends Handler {
             }
             Rlog.d(LOG_TAG, "Broadcasting intent ACTION_SIM_APPLICATION_STATE_CHANGED "
                     + TelephonyManager.simStateToString(state)
-                    + " for phone: " + phoneId + " slot: " + slotId + "port: "
-                    + slot.getPortIndexFromPhoneId(phoneId));
+                    + " for phone: " + phoneId + " slot: " + slotId + " port: "
+                    + slot.getPortIndexFromPhoneId(phoneId) + " sub: " + subId);
             mContext.sendBroadcast(intent, Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
             TelephonyMetrics.getInstance().updateSimState(phoneId, state);
         }

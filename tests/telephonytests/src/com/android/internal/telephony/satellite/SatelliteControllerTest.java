@@ -3434,7 +3434,8 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertEquals(SATELLITE_RESULT_MODEM_TIMEOUT, (long) mIIntegerConsumerResults.get(0));
         verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
                 anyBoolean(), anyBoolean(), any(Message.class));
-        verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
+        // Satellite should state at enabled state since satellite disable request failed
+        verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
 
         // Send the response for the above request to disable satellite. SatelliteController should
         // ignore the event
@@ -3442,7 +3443,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         AsyncResult.forMessage(response, null, null);
         response.sendToTarget();
         processAllMessages();
-        verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
+        verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
     }
 
     @Test

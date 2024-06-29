@@ -41,7 +41,6 @@ import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
-import android.telephony.Rlog;
 import android.telephony.satellite.ISatelliteModemStateCallback;
 import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.stub.ISatelliteGateway;
@@ -139,6 +138,7 @@ public class SatelliteSessionController extends StateMachine {
     private long mSatelliteNbIotInactivityTimeoutMillis;
     private final ConcurrentHashMap<IBinder, ISatelliteModemStateCallback> mListeners;
     @SatelliteManager.SatelliteModemState private int mCurrentState;
+    @SatelliteManager.SatelliteModemState private int mPreviousState;
     final boolean mIsSatelliteSupported;
     private boolean mIsDemoMode = false;
     @GuardedBy("mLock")
@@ -146,7 +146,6 @@ public class SatelliteSessionController extends StateMachine {
     @NonNull private final SatelliteController mSatelliteController;
     @NonNull private final DatagramController mDatagramController;
     @Nullable private PersistentLogger mPersistentLogger = null;
-
 
     /**
      * @return The singleton instance of SatelliteSessionController.
@@ -215,6 +214,7 @@ public class SatelliteSessionController extends StateMachine {
                 getSatelliteNbIotInactivityTimeoutMillis();
         mListeners = new ConcurrentHashMap<>();
         mIsSendingTriggeredDuringTransferringState = new AtomicBoolean(false);
+        mPreviousState = SatelliteManager.SATELLITE_MODEM_STATE_UNKNOWN;
         mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_UNKNOWN;
         mIsSatelliteSupported = isSatelliteSupported;
         mExponentialBackoff = new ExponentialBackoff(REBIND_INITIAL_DELAY, REBIND_MAXIMUM_DELAY,
@@ -441,6 +441,7 @@ public class SatelliteSessionController extends StateMachine {
         @Override
         public void enter() {
             if (DBG) plogd("Entering UnavailableState");
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_UNAVAILABLE;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_UNAVAILABLE);
         }
@@ -457,6 +458,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering PowerOffState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_OFF;
             mIsSendingTriggeredDuringTransferringState.set(false);
             synchronized (mLock) {
@@ -501,6 +503,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering EnablingState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_ENABLING_SATELLITE;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_ENABLING_SATELLITE);
         }
@@ -554,6 +557,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering DisablingState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_DISABLING_SATELLITE;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_DISABLING_SATELLITE);
         }
@@ -570,6 +574,19 @@ public class SatelliteSessionController extends StateMachine {
                 case EVENT_SATELLITE_ENABLED_STATE_CHANGED:
                     handleSatelliteEnabledStateChanged((boolean) msg.obj);
                     break;
+                case EVENT_SATELLITE_ENABLEMENT_FAILED:
+                    if (mPreviousState == SatelliteManager.SATELLITE_MODEM_STATE_CONNECTED
+                            || mPreviousState
+                            == SatelliteManager.SATELLITE_MODEM_STATE_DATAGRAM_TRANSFERRING
+                            || mPreviousState == SatelliteManager.SATELLITE_MODEM_STATE_LISTENING) {
+                        transitionTo(mConnectedState);
+                    } else {
+                        transitionTo(mNotConnectedState);
+                    }
+                    break;
+                case EVENT_SATELLITE_MODEM_STATE_CHANGED:
+                    handleEventSatelliteModemStateChanged(msg.arg1);
+                    break;
             }
             // Ignore all unexpected events.
             return HANDLED;
@@ -582,12 +599,20 @@ public class SatelliteSessionController extends StateMachine {
                 transitionTo(mPowerOffState);
             }
         }
+
+        private void handleEventSatelliteModemStateChanged(
+                @SatelliteManager.SatelliteModemState int state) {
+            if (state == SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED) {
+                mPreviousState = state;
+            }
+        }
     }
 
     private class IdleState extends State {
         @Override
         public void enter() {
             if (DBG) plogd("Entering IdleState");
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_IDLE;
             mIsSendingTriggeredDuringTransferringState.set(false);
             stopNbIotInactivityTimer();
@@ -686,6 +711,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering TransferringState");
             stopNbIotInactivityTimer();
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_DATAGRAM_TRANSFERRING;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_DATAGRAM_TRANSFERRING);
         }
@@ -745,6 +771,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering ListeningState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_LISTENING;
             long timeoutMillis = updateListeningMode(true);
             sendMessageDelayed(EVENT_LISTENING_TIMER_TIMEOUT, timeoutMillis);
@@ -808,6 +835,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering NotConnectedState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED);
             startNbIotInactivityTimer();
@@ -873,6 +901,7 @@ public class SatelliteSessionController extends StateMachine {
         public void enter() {
             if (DBG) plogd("Entering ConnectedState");
 
+            mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_CONNECTED;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_CONNECTED);
             startNbIotInactivityTimer();

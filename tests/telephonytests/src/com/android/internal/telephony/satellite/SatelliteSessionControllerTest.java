@@ -936,28 +936,41 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
         assertNotNull(mTestSatelliteSessionController);
         assertEquals(STATE_POWER_OFF, mTestSatelliteSessionController.getCurrentStateName());
 
-        // IDLE -> DISABLING
+        // IDLE -> DISABLING request failed -> NOT_CONNECTED
         moveToIdleState();
-        moveSatelliteToDisablingState();
+        moveSatelliteToDisablingRequestFailed(SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED,
+                STATE_NOT_CONNECTED);
 
-        // DISABLING -> POWER_OFF
+        // NOT_CONNECTED -> DISABLING -> POWER_OFF
+        moveSatelliteToDisablingState();
         moveToPowerOffState();
 
-        // TRANSFERRING -> DISABLING
+        // IDLE -> DISABLING -> POWER_OFF
+        moveToIdleState();
+        moveSatelliteToDisablingState();
+        moveToPowerOffState();
+
+        // TRANSFERRING -> DISABLING request failed -> CONNECTED
+        moveToIdleState();
+        moveIdleToTransferringState();
+        moveSatelliteToDisablingRequestFailed(
+                SatelliteManager.SATELLITE_MODEM_STATE_CONNECTED, STATE_CONNECTED);
+
+        // CONNECTED -> DISABLING -> POWER_OFF
+        moveSatelliteToDisablingState();
+        moveToPowerOffState();
+
+        // TRANSFERRING -> DISABLING -> POWER_OFF
         moveToIdleState();
         moveIdleToTransferringState();
         moveSatelliteToDisablingState();
-
-        // DISABLING -> POWER_OFF
         moveToPowerOffState();
 
-        // LISTENING -> DISABLING
+        // LISTENING -> DISABLING -> POWER_OFF
         moveToIdleState();
         moveIdleToTransferringState();
         moveTransferringToListeningState();
         moveSatelliteToDisablingState();
-
-        // DISABLING -> POWER_OFF
         moveToPowerOffState();
     }
 
@@ -1110,6 +1123,18 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
                 SatelliteManager.SATELLITE_MODEM_STATE_DISABLING_SATELLITE);
         assertEquals(
                 STATE_DISABLING_SATELLITE, mTestSatelliteSessionController.getCurrentStateName());
+    }
+
+    private void moveSatelliteToDisablingRequestFailed(int state, String stateName) {
+        moveSatelliteToDisablingState();
+
+        // Satellite disabled request failed
+        mTestSatelliteSessionController.onSatelliteEnablementFailed();
+        processAllMessages();
+
+        // Satellite should stay in previous state as satellite disable request failed
+        assertSuccessfulModemStateChangedCallback(mTestSatelliteModemStateCallback, state);
+        assertEquals(stateName, mTestSatelliteSessionController.getCurrentStateName());
     }
 
     private static class TestSatelliteModemInterface extends SatelliteModemInterface {

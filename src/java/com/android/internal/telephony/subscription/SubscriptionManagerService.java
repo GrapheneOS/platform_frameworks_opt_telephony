@@ -1540,6 +1540,9 @@ public class SubscriptionManagerService extends ISub.Stub {
                             MccTable.updateMccMncConfiguration(mContext, mccMnc);
                         }
                         setMccMnc(subId, mccMnc);
+                        if (isSatelliteSpn(subInfo.getDisplayName()) || isSatellitePlmn(mccMnc)) {
+                            setNtn(subId, true);
+                        }
                     } else {
                         loge("updateSubscription: mcc/mnc is empty");
                     }
