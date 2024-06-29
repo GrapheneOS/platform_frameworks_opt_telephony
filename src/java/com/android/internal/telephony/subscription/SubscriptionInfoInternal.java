@@ -492,6 +492,12 @@ public class SubscriptionInfoInternal {
     @NonNull private final String mSatelliteEntitlementPlmns;
 
     /**
+     * Whether the carrier roaming to satellite is using ESOS for emergency messaging.
+     * By default, its disabled. It is intended to use integer to fit the database format.
+     */
+    private final int mIsSatelliteESOSSupported;
+
+    /**
      * Constructor from builder.
      *
      * @param builder Builder of {@link SubscriptionInfoInternal}.
@@ -570,6 +576,7 @@ public class SubscriptionInfoInternal {
         this.mTransferStatus = builder.mTransferStatus;
         this.mIsSatelliteEntitlementStatus = builder.mIsSatelliteEntitlementStatus;
         this.mSatelliteEntitlementPlmns = builder.mSatelliteEntitlementPlmns;
+        this.mIsSatelliteESOSSupported = builder.mIsSatelliteESOSSupported;
     }
 
     /**
@@ -1266,6 +1273,13 @@ public class SubscriptionInfoInternal {
         return mSatelliteEntitlementPlmns;
     }
 
+    /**
+     * @return {@code 1} if the carrier roaming to satellite is using ESOS for emergency messaging.
+     */
+    public int getSatelliteESOSSupported() {
+        return mIsSatelliteESOSSupported;
+    }
+
     /** @return converted {@link SubscriptionInfo}. */
     @NonNull
     public SubscriptionInfo toSubscriptionInfo() {
@@ -1305,6 +1319,7 @@ public class SubscriptionInfoInternal {
                 .setServiceCapabilities(
                         SubscriptionManager.getServiceCapabilitiesSet(mServiceCapabilities))
                 .setTransferStatus(mTransferStatus)
+                .setSatelliteESOSSupported(mIsSatelliteESOSSupported == 1)
                 .build();
     }
 
@@ -1368,6 +1383,7 @@ public class SubscriptionInfoInternal {
                 + " transferStatus=" + mTransferStatus
                 + " satelliteEntitlementStatus=" + mIsSatelliteEntitlementStatus
                 + " satelliteEntitlementPlmns=" + mSatelliteEntitlementPlmns
+                + " isSatelliteESOSSupported=" + mIsSatelliteESOSSupported
                 + "]";
     }
 
@@ -1430,7 +1446,8 @@ public class SubscriptionInfoInternal {
                 && mServiceCapabilities == that.mServiceCapabilities
                 && mTransferStatus == that.mTransferStatus
                 && mIsSatelliteEntitlementStatus == that.mIsSatelliteEntitlementStatus
-                && mSatelliteEntitlementPlmns.equals(that.mSatelliteEntitlementPlmns);
+                && mSatelliteEntitlementPlmns.equals(that.mSatelliteEntitlementPlmns)
+                && mIsSatelliteESOSSupported == that.mIsSatelliteESOSSupported;
     }
 
     @Override
@@ -1463,7 +1480,7 @@ public class SubscriptionInfoInternal {
                 mIsSatelliteEnabled, mCardId, mIsGroupDisabled,
                 mIsSatelliteAttachEnabledForCarrier, mIsOnlyNonTerrestrialNetwork,
                 mServiceCapabilities, mTransferStatus, mIsSatelliteEntitlementStatus,
-                mSatelliteEntitlementPlmns);
+                mSatelliteEntitlementPlmns, mIsSatelliteESOSSupported);
         result = 31 * result + Arrays.hashCode(mNativeAccessRules);
         result = 31 * result + Arrays.hashCode(mCarrierConfigAccessRules);
         result = 31 * result + Arrays.hashCode(mRcsConfig);
@@ -1872,6 +1889,11 @@ public class SubscriptionInfoInternal {
         private String mSatelliteEntitlementPlmns = "";
 
         /**
+         * Whether the carrier roaming to satellite is using ESOS for emergency messaging.
+         */
+        private int mIsSatelliteESOSSupported = 0;
+
+        /**
          * Default constructor.
          */
         public Builder() {
@@ -1953,6 +1975,7 @@ public class SubscriptionInfoInternal {
             mTransferStatus = info.mTransferStatus;
             mIsSatelliteEntitlementStatus = info.mIsSatelliteEntitlementStatus;
             mSatelliteEntitlementPlmns = info.mSatelliteEntitlementPlmns;
+            mIsSatelliteESOSSupported = info.mIsSatelliteESOSSupported;
         }
 
         /**
@@ -2919,6 +2942,19 @@ public class SubscriptionInfoInternal {
         @NonNull
         public Builder setSatelliteEntitlementPlmns(@NonNull String satelliteEntitlementPlmns) {
             mSatelliteEntitlementPlmns = satelliteEntitlementPlmns;
+            return this;
+        }
+
+        /**
+         * Set whether the carrier roaming to satellite is using ESOS for emergency messaging.
+         *
+         * @param isSatelliteESOSSupported {@code 1} if the carrier roaming to satellite is using
+         * ESOS for emergency messaging.
+         * @return The builder
+         */
+        @NonNull
+        public Builder setSatelliteESOSSupported(int isSatelliteESOSSupported) {
+            mIsSatelliteESOSSupported = isSatelliteESOSSupported;
             return this;
         }
 

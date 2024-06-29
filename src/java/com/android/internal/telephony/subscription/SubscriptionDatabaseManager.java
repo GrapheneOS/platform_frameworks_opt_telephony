@@ -280,7 +280,7 @@ public class SubscriptionDatabaseManager extends Handler {
                     SimInfo.COLUMN_SATELLITE_ATTACH_ENABLED_FOR_CARRIER,
                     SubscriptionInfoInternal::getSatelliteAttachEnabledForCarrier),
             new AbstractMap.SimpleImmutableEntry<>(
-                    SimInfo.COLUMN_IS_NTN,
+                    SimInfo.COLUMN_IS_ONLY_NTN,
                     SubscriptionInfoInternal::getOnlyNonTerrestrialNetwork),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SERVICE_CAPABILITIES,
@@ -293,7 +293,10 @@ public class SubscriptionDatabaseManager extends Handler {
                     SubscriptionInfoInternal::getSatelliteEntitlementStatus),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS,
-                    SubscriptionInfoInternal::getSatelliteEntitlementPlmns)
+                    SubscriptionInfoInternal::getSatelliteEntitlementPlmns),
+            new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED,
+                    SubscriptionInfoInternal::getSatelliteESOSSupported)
     );
 
     /**
@@ -423,7 +426,7 @@ public class SubscriptionDatabaseManager extends Handler {
                     SimInfo.COLUMN_SATELLITE_ATTACH_ENABLED_FOR_CARRIER,
                     SubscriptionDatabaseManager::setSatelliteAttachEnabledForCarrier),
             new AbstractMap.SimpleImmutableEntry<>(
-                    SimInfo.COLUMN_IS_NTN,
+                    SimInfo.COLUMN_IS_ONLY_NTN,
                     SubscriptionDatabaseManager::setNtn),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SERVICE_CAPABILITIES,
@@ -433,7 +436,10 @@ public class SubscriptionDatabaseManager extends Handler {
                     SubscriptionDatabaseManager::setTransferStatus),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SATELLITE_ENTITLEMENT_STATUS,
-                    SubscriptionDatabaseManager::setSatelliteEntitlementStatus)
+                    SubscriptionDatabaseManager::setSatelliteEntitlementStatus),
+            new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED,
+                    SubscriptionDatabaseManager::setSatelliteESOSSupported)
     );
 
     /**
@@ -2063,7 +2069,7 @@ public class SubscriptionDatabaseManager extends Handler {
         if (!mFeatureFlags.oemEnabledSatelliteFlag()) {
             return;
         }
-        writeDatabaseAndCacheHelper(subId, SimInfo.COLUMN_IS_NTN, isNtn,
+        writeDatabaseAndCacheHelper(subId, SimInfo.COLUMN_IS_ONLY_NTN, isNtn,
                 SubscriptionInfoInternal.Builder::setOnlyNonTerrestrialNetwork);
     }
 
@@ -2159,6 +2165,23 @@ public class SubscriptionDatabaseManager extends Handler {
         String satelliteEntitlementPlmns = satelliteEntitlementPlmnList.stream().collect(
                 Collectors.joining(","));
         setSatelliteEntitlementPlmns(subId, satelliteEntitlementPlmns);
+    }
+
+    /**
+     * Set whether the carrier roaming to satellite is using ESOS for emergency messaging.
+     *
+     * @param subId Subscription id.
+     * @param isSatelliteESOSSupported whether the carrier roaming to satellite is using ESOS for
+     * emergency messaging.
+     * @throws IllegalArgumentException if the subscription does not exist.
+     */
+    public void setSatelliteESOSSupported(int subId, int isSatelliteESOSSupported) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            return;
+        }
+        writeDatabaseAndCacheHelper(subId,
+                SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED, isSatelliteESOSSupported,
+                SubscriptionInfoInternal.Builder::setSatelliteESOSSupported);
     }
 
     /**
@@ -2402,11 +2425,15 @@ public class SubscriptionDatabaseManager extends Handler {
                                 SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS)));
         if (mFeatureFlags.oemEnabledSatelliteFlag()) {
             builder.setOnlyNonTerrestrialNetwork(cursor.getInt(cursor.getColumnIndexOrThrow(
-                    SimInfo.COLUMN_IS_NTN)));
+                    SimInfo.COLUMN_IS_ONLY_NTN)));
         }
         if (mFeatureFlags.supportPsimToEsimConversion()) {
             builder.setTransferStatus(cursor.getInt(cursor.getColumnIndexOrThrow(
                     SimInfo.COLUMN_TRANSFER_STATUS)));
+        }
+        if (mFeatureFlags.carrierRoamingNbIotNtn()) {
+            builder.setSatelliteESOSSupported(cursor.getInt(
+                    cursor.getColumnIndexOrThrow(SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED)));
         }
         return builder.build();
     }

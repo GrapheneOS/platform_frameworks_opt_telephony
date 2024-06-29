@@ -110,7 +110,7 @@ public class SubscriptionInfoInternalTest {
                             SubscriptionDatabaseManagerTest
                                     .FAKE_SATELLITE_ATTACH_FOR_CARRIER_ENABLED)
                     .setOnlyNonTerrestrialNetwork(
-                            SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_NTN_ENABLED)
+                            SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_ONLY_NTN_ENABLED)
                     .setGroupDisabled(false)
                     .setOnlyNonTerrestrialNetwork(1)
                     .setServiceCapabilities(
@@ -122,6 +122,8 @@ public class SubscriptionInfoInternalTest {
                     .setSatelliteEntitlementPlmns(
                             SubscriptionDatabaseManagerTest
                                     .FAKE_SATELLITE_ENTITLEMENT_PLMNS1)
+                    .setSatelliteESOSSupported(
+                            SubscriptionDatabaseManagerTest.FAKE_SATELLITE_ESOS_SUPPORTED_ENABLED)
                     .build();
 
     private final SubscriptionInfoInternal mSubInfoNull =
@@ -240,7 +242,7 @@ public class SubscriptionInfoInternalTest {
                 .isEqualTo(SubscriptionDatabaseManagerTest
                         .FAKE_SATELLITE_ATTACH_FOR_CARRIER_ENABLED);
         assertThat(mSubInfo.getOnlyNonTerrestrialNetwork()).isEqualTo(
-                SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_NTN_ENABLED);
+                SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_ONLY_NTN_ENABLED);
         assertThat(mSubInfo.isGroupDisabled()).isFalse();
         assertThat(mSubInfo.getOnlyNonTerrestrialNetwork()).isEqualTo(1);
         assertThat(mSubInfo.getServiceCapabilities()).isEqualTo(
@@ -252,6 +254,8 @@ public class SubscriptionInfoInternalTest {
         assertThat(mSubInfo.getSatelliteEntitlementPlmns())
                 .isEqualTo(SubscriptionDatabaseManagerTest
                         .FAKE_SATELLITE_ENTITLEMENT_PLMNS1);
+        assertThat(mSubInfo.getSatelliteESOSSupported())
+                .isEqualTo(SubscriptionDatabaseManagerTest.FAKE_SATELLITE_ESOS_SUPPORTED_ENABLED);
     }
 
     @Test

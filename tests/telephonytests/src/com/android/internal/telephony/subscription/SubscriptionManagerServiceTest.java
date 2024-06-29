@@ -44,7 +44,7 @@ import static com.android.internal.telephony.subscription.SubscriptionDatabaseMa
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_RCS_CONFIG1;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_RCS_CONFIG2;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_SATELLITE_ENTITLEMENT_PLMNS1;
-import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_NTN_DISABLED;
+import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_SATELLITE_IS_ONLY_NTN_DISABLED;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_SUBSCRIPTION_INFO1;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_SUBSCRIPTION_INFO2;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_UUID1;
@@ -3255,7 +3255,7 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
         SubscriptionInfoInternal subInfo = mSubscriptionManagerServiceUT
                 .getSubscriptionInfoInternal(1);
         assertThat(subInfo.getOnlyNonTerrestrialNetwork())
-                .isEqualTo(FAKE_SATELLITE_IS_NTN_DISABLED);
+                .isEqualTo(FAKE_SATELLITE_IS_ONLY_NTN_DISABLED);
 
         mContextFixture.putResource(R.string.config_satellite_sim_spn_identifier,
                 FAKE_CARRIER_NAME1);
@@ -3282,7 +3282,7 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
         subInfo = mSubscriptionManagerServiceUT
                 .getSubscriptionInfoInternal(2);
         assertThat(subInfo.getOnlyNonTerrestrialNetwork())
-                .isEqualTo(FAKE_SATELLITE_IS_NTN_DISABLED);
+                .isEqualTo(FAKE_SATELLITE_IS_ONLY_NTN_DISABLED);
 
         System.setProperty("persist.radio.allow_mock_modem", "false");
         doReturn(false).when(mFlags).oemEnabledSatelliteFlag();

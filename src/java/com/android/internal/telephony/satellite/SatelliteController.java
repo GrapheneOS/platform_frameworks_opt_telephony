@@ -24,6 +24,7 @@ import static android.telephony.CarrierConfigManager.KEY_EMERGENCY_MESSAGING_SUP
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ENTITLEMENT_SUPPORTED_BOOL;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
 import static android.telephony.SubscriptionManager.SATELLITE_ATTACH_ENABLED_FOR_CARRIER;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
 import static android.telephony.SubscriptionManager.isValidSubscriptionId;
@@ -3961,7 +3962,8 @@ public class SatelliteController extends Handler {
                 KEY_SATELLITE_ENTITLEMENT_SUPPORTED_BOOL,
                 KEY_CARRIER_ROAMING_SATELLITE_DEFAULT_SERVICES_INT_ARRAY,
                 KEY_EMERGENCY_MESSAGING_SUPPORTED_BOOL,
-                KEY_EMERGENCY_CALL_TO_SATELLITE_T911_HANDOVER_TIMEOUT_MILLIS_INT);
+                KEY_EMERGENCY_CALL_TO_SATELLITE_T911_HANDOVER_TIMEOUT_MILLIS_INT,
+                KEY_SATELLITE_ESOS_SUPPORTED_BOOL);
         if (config == null || config.isEmpty()) {
             config = CarrierConfigManager.getDefaultConfig();
         }
@@ -3978,6 +3980,7 @@ public class SatelliteController extends Handler {
         }
 
         updateCarrierConfig(subId);
+        updateSatelliteESOSSupported(subId);
         updateEntitlementPlmnListPerCarrier(subId);
         updateSupportedSatelliteServicesForActiveSubscriptions();
         processNewCarrierConfigData(subId);
@@ -4038,6 +4041,26 @@ public class SatelliteController extends Handler {
                 evaluateEnablingSatelliteForCarrier(subId,
                         SATELLITE_COMMUNICATION_RESTRICTION_REASON_USER, null);
             }
+        }
+    }
+
+    /**
+     * Update the value of SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED stored in the database based
+     * on the value in the carrier config.
+     */
+    private void updateSatelliteESOSSupported(int subId) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            return;
+        }
+
+        boolean isSatelliteESosSupportedFromDB =
+                mSubscriptionManagerService.getSatelliteESOSSupported(subId);
+        boolean isSatelliteESosSupportedFromCarrierConfig = getConfigForSubId(subId).getBoolean(
+                KEY_SATELLITE_ESOS_SUPPORTED_BOOL, false);
+        if (isSatelliteESosSupportedFromDB != isSatelliteESosSupportedFromCarrierConfig) {
+            mSubscriptionManagerService.setSatelliteESOSSupported(subId,
+                    isSatelliteESosSupportedFromCarrierConfig);
+            logd("updateSatelliteESOSSupported: " + isSatelliteESosSupportedFromCarrierConfig);
         }
     }
 

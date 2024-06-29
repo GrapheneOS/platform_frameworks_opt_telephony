@@ -193,9 +193,10 @@ public class SubscriptionManagerService extends ISub.Stub {
             SimInfo.COLUMN_NR_ADVANCED_CALLING_ENABLED,
             SimInfo.COLUMN_SATELLITE_ENABLED,
             SimInfo.COLUMN_SATELLITE_ATTACH_ENABLED_FOR_CARRIER,
-            SimInfo.COLUMN_IS_NTN,
+            SimInfo.COLUMN_IS_ONLY_NTN,
             SimInfo.COLUMN_SATELLITE_ENTITLEMENT_STATUS,
-            SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS
+            SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS,
+            SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED
     );
 
     /**
@@ -4591,6 +4592,43 @@ public class SubscriptionManagerService extends ISub.Stub {
                 .filter(s -> !s.isEmpty())
                 .map(s -> Arrays.stream(s.split(",")).collect(Collectors.toList()))
                 .orElse(new ArrayList<>());
+    }
+
+    /**
+     * Set the satellite ESOS supported value in the subscription database.
+     *
+     * @param subId subscription id.
+     * @param isSatelliteESOSSupported {@code true} satellite ESOS supported true.
+     */
+    public void setSatelliteESOSSupported(int subId, @NonNull boolean isSatelliteESOSSupported) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            return;
+        }
+        try {
+            mSubscriptionDatabaseManager.setSatelliteESOSSupported(subId,
+                    isSatelliteESOSSupported ? 1 : 0);
+        } catch (IllegalArgumentException e) {
+            loge("setSatelliteESOSSupported: invalid subId=" + subId);
+        }
+    }
+
+    /**
+     * Get the satellite ESOS supported value in the subscription database.
+     *
+     * @param subId subscription id.
+     * @return the satellite ESOS supported true or false.
+     */
+    public boolean getSatelliteESOSSupported(int subId) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            return false;
+        }
+        SubscriptionInfoInternal subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(
+                subId);
+        if (subInfo == null) {
+            return false;
+        }
+
+        return subInfo.getSatelliteESOSSupported() == 1;
     }
 
     /**
