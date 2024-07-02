@@ -49,6 +49,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -90,6 +91,7 @@ import android.telephony.NetworkRegistrationInfo;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.satellite.INtnSignalStrengthCallback;
@@ -100,6 +102,7 @@ import android.telephony.satellite.ISatelliteProvisionStateCallback;
 import android.telephony.satellite.ISatelliteSupportedStateCallback;
 import android.telephony.satellite.ISatelliteTransmissionUpdateCallback;
 import android.telephony.satellite.NtnSignalStrength;
+import android.telephony.satellite.ProvisionSubscriberId;
 import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
@@ -126,6 +129,7 @@ import com.android.internal.telephony.satellite.metrics.CarrierRoamingSatelliteS
 import com.android.internal.telephony.satellite.metrics.ControllerMetricsStats;
 import com.android.internal.telephony.satellite.metrics.ProvisionMetricsStats;
 import com.android.internal.telephony.satellite.metrics.SessionMetricsStats;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.internal.util.FunctionalUtils;
@@ -221,6 +225,9 @@ public class SatelliteController extends Handler {
     private static final int EVENT_SATELLITE_CONFIG_DATA_UPDATED = 40;
     private static final int EVENT_SATELLITE_SUPPORTED_STATE_CHANGED = 41;
     private static final int EVENT_NOTIFY_NTN_HYSTERESIS_TIMED_OUT = 42;
+    private static final int EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION = 43;
+    private static final int CMD_PROVISION_SATELLITE_TOKEN_UPDATED = 44;
+    private static final int EVENT_PROVISION_SATELLITE_TOKEN_UPDATED = 45;
 
     @NonNull private static SatelliteController sInstance;
     @NonNull private final Context mContext;
@@ -350,6 +357,8 @@ public class SatelliteController extends Handler {
             mCarrierConfigChangeListener;
     @NonNull private final ConfigProviderAdaptor.Callback mConfigDataUpdatedCallback;
     @NonNull private final Object mCarrierConfigArrayLock = new Object();
+    @NonNull
+    private final SubscriptionManager.OnSubscriptionsChangedListener mSubscriptionsChangedListener;
     @GuardedBy("mCarrierConfigArrayLock")
     @NonNull private final SparseArray<PersistableBundle> mCarrierConfigArray = new SparseArray<>();
     @GuardedBy("mIsSatelliteEnabledLock")
@@ -423,6 +432,16 @@ public class SatelliteController extends Handler {
     @GuardedBy("mSupportedSatelliteServicesLock")
     private final SparseArray<List<String>> mMergedPlmnListPerCarrier = new SparseArray<>();
     private static AtomicLong sNextSatelliteEnableRequestId = new AtomicLong(0);
+    // key : subscriberId, value : provisioned or not.
+    @GuardedBy("mSatelliteTokenProvisionedLock")
+    private Map<String, Boolean> mProvisionedSubscriberId = new HashMap<>();
+    // key : subscriberId, value : subId
+    @GuardedBy("mSatelliteTokenProvisionedLock")
+    private Map<String, Integer> mSubscriberIdPerSub = new HashMap<>();
+    // key : priority, low value is high, value : List<SubscriptionInfo>
+    @GuardedBy("mSatelliteTokenProvisionedLock")
+    Map<Integer, List<SubscriptionInfo>> mSubsInfoListPerPriority = new HashMap<>();
+    @NonNull private final Object mSatelliteTokenProvisionedLock = new Object();
     private long mWaitTimeForSatelliteEnablingResponse;
     private long mDemoPointingAlignedDurationMillis;
     private long mDemoPointingNotAlignedDurationMillis;
@@ -578,6 +597,28 @@ public class SatelliteController extends Handler {
                 getDemoPointingNotAlignedDurationMillisFromResources();
         mSatelliteEmergencyModeDurationMillis =
                 getSatelliteEmergencyModeDurationFromOverlayConfig(context);
+        sendMessageDelayed(obtainMessage(EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION),
+                /* delayMillis= */ TimeUnit.MINUTES.toMillis(1));
+
+        SubscriptionManager subscriptionManager = mContext.getSystemService(
+                SubscriptionManager.class);
+        mSubscriptionsChangedListener = new SatelliteSubscriptionsChangedListener();
+        if (subscriptionManager != null) {
+            subscriptionManager.addOnSubscriptionsChangedListener(
+                    new HandlerExecutor(new Handler(looper)), mSubscriptionsChangedListener);
+        }
+    }
+
+    class SatelliteSubscriptionsChangedListener
+            extends SubscriptionManager.OnSubscriptionsChangedListener {
+
+        /**
+         * Callback invoked when there is any change to any SubscriptionInfo.
+         */
+        @Override
+        public void onSubscriptionsChanged() {
+            handleSubscriptionsChanged();
+        }
     }
 
     /**
@@ -1464,10 +1505,70 @@ public class SatelliteController extends Handler {
                 break;
             }
 
+            case EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION: {
+                evaluateESOSProfilesPrioritization();
+                break;
+            }
+
+            case CMD_PROVISION_SATELLITE_TOKEN_UPDATED: {
+                request = (SatelliteControllerHandlerRequest) msg.obj;
+                RequestProvisionSatelliteArgument argument =
+                        (RequestProvisionSatelliteArgument) request.argument;
+                onCompleted = obtainMessage(EVENT_PROVISION_SATELLITE_TOKEN_UPDATED, request);
+                // only pass to index 0.
+                int subId = -1;
+                synchronized (mSatelliteTokenProvisionedLock) {
+                    subId = mSubscriberIdPerSub.getOrDefault(
+                            argument.mProvisionSubscriberIdList.get(0).getSubscriberId(), -1);
+                }
+                String iccId = mSubscriptionManagerService.getSubscriptionInfo(subId).getIccId();
+                logd("CMD_PROVISION_SATELLITE_TOKEN_UPDATED: subId=" + subId + ", iccId=" + iccId);
+                mSatelliteModemInterface.updateSatelliteSubscription(iccId, onCompleted);
+                Consumer<Integer> result = new Consumer<Integer>() {
+                    @Override
+                    public void accept(Integer integer) {
+                        logd("invoke CMD_PROVISION_SATELLITE_SERVICE done.");
+                    }
+                };
+                ProvisionSatelliteServiceArgument internalArgument =
+                        new ProvisionSatelliteServiceArgument(iccId, null, result, subId);
+                sendMessage(obtainMessage(CMD_PROVISION_SATELLITE_SERVICE, internalArgument));
+                break;
+            }
+
+            case EVENT_PROVISION_SATELLITE_TOKEN_UPDATED: {
+                ar = (AsyncResult) msg.obj;
+                request = (SatelliteControllerHandlerRequest) ar.userObj;
+                RequestProvisionSatelliteArgument argument =
+                        (RequestProvisionSatelliteArgument) request.argument;
+                int error = SatelliteServiceUtils.getSatelliteError(ar,
+                        "updateSatelliteSubscription");
+                logd("EVENT_PROVISION_SATELLITE_TOKEN_UPDATED = " + error);
+                Bundle bundle = new Bundle();
+                bundle.putBoolean(SatelliteManager.KEY_PROVISION_SATELLITE_TOKENS, true);
+                argument.mResult.send(SATELLITE_RESULT_SUCCESS, bundle);
+                break;
+            }
+
             default:
                 Log.w(TAG, "SatelliteControllerHandler: unexpected message code: " +
                         msg.what);
                 break;
+        }
+    }
+
+    private static final class RequestProvisionSatelliteArgument {
+        public List<ProvisionSubscriberId> mProvisionSubscriberIdList;
+        @NonNull
+        public ResultReceiver mResult;
+        public long mRequestId;
+
+        RequestProvisionSatelliteArgument(List<ProvisionSubscriberId> provisionSubscriberIdList,
+                ResultReceiver result) {
+            this.mProvisionSubscriberIdList = provisionSubscriberIdList;
+            this.mResult = result;
+            this.mRequestId = sNextSatelliteEnableRequestId.getAndUpdate(
+                    n -> ((n + 1) % Long.MAX_VALUE));
         }
     }
 
@@ -3985,6 +4086,14 @@ public class SatelliteController extends Handler {
         updateSupportedSatelliteServicesForActiveSubscriptions();
         processNewCarrierConfigData(subId);
         resetCarrierRoamingSatelliteModeParams(subId);
+        sendMessageDelayed(obtainMessage(EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION),
+                TimeUnit.MINUTES.toMillis(1));
+    }
+
+    // imsi, msisdn, default sms subId change
+    private void handleSubscriptionsChanged() {
+        sendMessageDelayed(obtainMessage(EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION),
+                TimeUnit.MINUTES.toMillis(1));
     }
 
     private void processNewCarrierConfigData(int subId) {
@@ -5038,5 +5147,217 @@ public class SatelliteController extends Handler {
             ploge("getSatelliteEmergencyModeDurationFromOverlayConfig: got ex=" + ex);
         }
         return TimeUnit.SECONDS.toMillis(duration);
+    }
+
+
+    /**
+     * Calculate priority
+     * 1. Active eSOS profiles are higher priority than inactive eSOS profiles.
+     * 2. Carrier Enabled eSOS profile is higher priority than OEM enabled eSOS profile.
+     * 3. Among active carrier eSOS profiles user selected(default SMS SIM) eSOS profile will be
+     * the highest priority.
+     */
+    private void evaluateESOSProfilesPrioritization() {
+        List<SubscriptionInfo> allSubInfos = mSubscriptionManagerService.getAllSubInfoList(
+                mContext.getOpPackageName(), mContext.getAttributionTag());
+        //key : priority, low value is high, value : List<SubscriptionInfo>
+        Map<Integer, List<SubscriptionInfo>> newSubsInfoListPerPriority = new HashMap<>();
+        for (SubscriptionInfo info : allSubInfos) {
+            int subId = info.getSubscriptionId();
+            boolean isActive = info.isActive();
+            boolean isDefaultSmsSubId = mSubscriptionManagerService.getDefaultSmsSubId() == subId;
+            boolean isNtnOnly = info.isOnlyNonTerrestrialNetwork();
+            boolean isESOSSupported = info.isSatelliteESOSSupported();
+            if (!isNtnOnly && !isESOSSupported) {
+                logd("evaluateESOSProfilesPrioritization: !isNtnOnly && !isESOS");
+                continue;
+            }
+
+            int keyPriority = (isESOSSupported && isActive && isDefaultSmsSubId) ? 0
+                    : (isESOSSupported && isActive) ? 1
+                            : (isNtnOnly) ? 2 : (isESOSSupported) ? 3 : -1;
+            if (keyPriority != -1) {
+                newSubsInfoListPerPriority.computeIfAbsent(keyPriority,
+                        k -> new ArrayList<>()).add(info);
+            }
+        }
+
+        if (newSubsInfoListPerPriority.size() == 0) {
+            logd("evaluateESOSProfilesPrioritization: no available");
+            return;
+        }
+
+        // if priority is changed, send broadcast for provisioned ESOS subs ids
+        synchronized (mSatelliteTokenProvisionedLock) {
+            if (isPriorityChanged(mSubsInfoListPerPriority, newSubsInfoListPerPriority)) {
+                mSubsInfoListPerPriority = newSubsInfoListPerPriority;
+                sendBroadCastForProvisionedESOSSubs();
+            }
+        }
+    }
+
+    // The subscriberId for ntnOnly SIMs is the Iccid, whereas for ESOS supported SIMs, the
+    // subscriberId is the Imsi prefix 6 digit + msisdn.
+    private String getSubscriberId(int subId, SubscriptionInfo info, boolean isNtnOnly) {
+        if (isNtnOnly) {
+            return info.getIccId();
+        }
+        return getSubscriberIdForCarrier(subId);
+    }
+
+    private String getSubscriberIdForCarrier(int subId) {
+        SubscriptionInfoInternal internal = mSubscriptionManagerService.getSubscriptionInfoInternal(
+                0);
+        String msisdn = "";
+        for (Phone phone : PhoneFactory.getPhones()) {
+            if (subId == phone.getSubId()) {
+                msisdn = phone.getMsisdn();
+            }
+        }
+        if (msisdn == null) {
+            logd("getSubscriberIdForCarrier: msisdn null");
+            return "";
+        }
+        return internal.getImsi().substring(0, 6) + msisdn;
+    }
+
+    private boolean isPriorityChanged(Map<Integer, List<SubscriptionInfo>> currentMap,
+            Map<Integer, List<SubscriptionInfo>> newMap) {
+        if (currentMap.size() == 0 || currentMap.size() != newMap.size()) {
+            return true;
+        }
+
+        for (Map.Entry<Integer, List<SubscriptionInfo>> entry : currentMap.entrySet()) {
+            List<SubscriptionInfo> currentList = entry.getValue();
+            List<SubscriptionInfo> newList = newMap.get(entry.getKey());
+            if (currentList == null || currentList.size() != newList.size()) {
+                return true;
+            }
+            logd("isPriorityChanged: current.size=" + currentList.size() + " , new.size="
+                    + newList.size());
+            for (int i = 0; i < currentList.size(); i++) {
+                if (!currentList.get(i).equals(newList.get(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void sendBroadCastForProvisionedESOSSubs() {
+        String packageName = getStringFromOverlayConfig(
+                R.string.config_satellite_gateway_service_package);
+        String className = getStringFromOverlayConfig(
+                R.string.config_satellite_carrier_roaming_esos_provisioned_class);
+        String action = getStringFromOverlayConfig(
+                R.string.config_satellite_carrier_roaming_esos_provisioned_intent_action);
+
+        Intent intent = new Intent(action);
+        intent.setComponent(new ComponentName(packageName, className));
+        mContext.sendBroadcast(intent);
+        logd("sendBroadCaseToProvisionedESOSSubs");
+    }
+
+    private String getStringFromOverlayConfig(int resourceId) {
+        String name;
+        try {
+            name = mContext.getResources().getString(resourceId);
+        } catch (Resources.NotFoundException ex) {
+            loge("getStringFromOverlayConfig: ex=" + ex);
+            name = null;
+        }
+        return name;
+    }
+
+    /**
+     * Request to get list of prioritized satellite tokens to be used for provision.
+     *
+     * @param result The result receiver, which returns the list of prioritized satellite tokens
+     * to be used for provision if the request is successful or an error code if the request failed.
+     */
+    public void requestProvisionSubscriberIds(@NonNull ResultReceiver result) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
+            return;
+        }
+
+        List<ProvisionSubscriberId> list = new ArrayList<>();
+        synchronized (mSatelliteTokenProvisionedLock) {
+            mSubscriberIdPerSub = new HashMap<>();
+            for (int i = 0; i < mSubsInfoListPerPriority.size(); i++) {
+                List<SubscriptionInfo> infoList = mSubsInfoListPerPriority.get(i);
+                for (SubscriptionInfo info : infoList) {
+                    String subscriberId = getSubscriberId(info.getSubscriptionId(), info,
+                            info.isOnlyNonTerrestrialNetwork());
+                    int carrierId = info.getCarrierId();
+                    logd("requestProvisionSubscriberIds: subscriberId:" + subscriberId
+                            + " , carrierId=" + carrierId);
+                    if (subscriberId.isEmpty()) {
+                        logd("requestProvisionSubscriberIds: getSubscriberId failed skip this "
+                                + "subscriberId.");
+                        continue;
+                    }
+                    list.add(new ProvisionSubscriberId(subscriberId, carrierId));
+                    mSubscriberIdPerSub.put(subscriberId, info.getSubscriptionId());
+                }
+            }
+        }
+
+        logd("requestProvisionSubscriberIds: size=" + list.size());
+        final Bundle bundle = new Bundle();
+        bundle.putParcelableList(SatelliteManager.KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN, list);
+        result.send(SATELLITE_RESULT_SUCCESS, bundle);
+    }
+
+    /**
+     * Request to get provisioned status for given a satellite subscriber id.
+     *
+     * @param satelliteSubscriberId Satellite subscriber id requiring provisioned status check.
+     * @param result The result receiver, which returns the provisioned status of the token if the
+     * request is successful or an error code if the request failed.
+     */
+    public void requestIsProvisioned(String satelliteSubscriberId, @NonNull ResultReceiver result) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
+            return;
+        }
+
+        boolean isProvisioned = false;
+        synchronized (mSatelliteTokenProvisionedLock) {
+            if (mProvisionedSubscriberId.getOrDefault(satelliteSubscriberId, false)) {
+                isProvisioned = true;
+            }
+        }
+
+        logd("requestIsProvisioned: satelliteSubscriberId=" + satelliteSubscriberId
+                + " , isProvisioned=" + isProvisioned);
+        final Bundle bundle = new Bundle();
+        bundle.putBoolean(SatelliteManager.KEY_IS_SATELLITE_PROVISIONED, isProvisioned);
+        result.send(SATELLITE_RESULT_SUCCESS, bundle);
+    }
+
+    /**
+     * Deliver the list of provisioned satellite subscriber ids.
+     *
+     * @param list List of provisioned satellite subscriber ids.
+     * @param result The result receiver that returns whether deliver success or fail.
+     */
+    public void provisionSatellite(@NonNull List<ProvisionSubscriberId> list,
+            @NonNull ResultReceiver result) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
+            return;
+        }
+
+        logd("provisionSatellite: size=" + list.size());
+        for (ProvisionSubscriberId subscriberId : list) {
+            synchronized (mSatelliteTokenProvisionedLock) {
+                mProvisionedSubscriberId.put(subscriberId.getSubscriberId(), true);
+            }
+        }
+
+        RequestProvisionSatelliteArgument request = new RequestProvisionSatelliteArgument(list,
+                result);
+        sendMessage(obtainMessage(CMD_PROVISION_SATELLITE_TOKEN_UPDATED, request));
     }
 }

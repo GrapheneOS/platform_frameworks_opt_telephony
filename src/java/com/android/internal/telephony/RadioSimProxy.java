@@ -530,6 +530,7 @@ public class RadioSimProxy extends RadioServiceProxy {
             carrierRestrictions.allowedCarriersPrioritized =
                     (carrierRestrictionRules.getDefaultCarrierRestriction()
                             == CarrierRestrictionRules.CARRIER_RESTRICTION_DEFAULT_NOT_ALLOWED);
+            carrierRestrictions.status = carrierRestrictionRules.getCarrierRestrictionStatus();
             mSimProxy.setAllowedCarriers(serial, carrierRestrictions,
                     RILUtils.convertToHalSimLockMultiSimPolicyAidl(
                             carrierRestrictionRules.getMultiSimPolicy()));

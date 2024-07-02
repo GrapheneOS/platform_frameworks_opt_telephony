@@ -1410,6 +1410,34 @@ public class SatelliteModemInterface {
     }
 
     /**
+     * Provision UUID with a satellite provider.
+     */
+    public void updateSatelliteSubscription(@NonNull String iccId, @NonNull Message message) {
+        if (mSatelliteService != null) {
+            try {
+                mSatelliteService.updateSatelliteSubscription(iccId,
+                        new IIntegerConsumer.Stub() {
+                            @Override
+                            public void accept(int result) {
+                                int error = SatelliteServiceUtils.fromSatelliteError(result);
+                                plogd("updateSatelliteSubscription: " + error);
+                                Binder.withCleanCallingIdentity(() ->
+                                        sendMessageWithResult(message, null, error));
+                            }
+                        });
+            } catch (RemoteException e) {
+                ploge("updateSatelliteSubscription: RemoteException " + e);
+                sendMessageWithResult(message, null,
+                        SatelliteManager.SATELLITE_RESULT_SERVICE_ERROR);
+            }
+        } else {
+            ploge("updateSatelliteSubscription: Satellite service is unavailable.");
+            sendMessageWithResult(message, null,
+                    SatelliteManager.SATELLITE_RESULT_RADIO_NOT_AVAILABLE);
+        }
+    }
+
+    /**
      * This API can be used by only CTS to update satellite vendor service package name.
      *
      * @param servicePackageName The package name of the satellite vendor service.
