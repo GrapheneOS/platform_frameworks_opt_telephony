@@ -4959,7 +4959,7 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
             }
             case EVENT_SUPP_SERVICE_INDICATION: {
                 ar = (AsyncResult) msg.obj;
-                ImsPhoneMmiCode mmiCode = new ImsPhoneMmiCode(mPhone);
+                ImsPhoneMmiCode mmiCode = new ImsPhoneMmiCode(mPhone, mFeatureFlags);
                 try {
                     mmiCode.setIsSsInfo(true);
                     mmiCode.processImsSsData(ar);

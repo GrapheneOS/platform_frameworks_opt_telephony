@@ -228,3 +228,14 @@ flag {
         purpose: PURPOSE_BUGFIX
     }
 }
+
+# OWNER=joonhunshin TARGET=24Q4
+flag {
+    name: "use_carrier_config_for_cfnry_time_via_mmi"
+    namespace: "telephony"
+    description: "This flag allows the no reply timer to be referenced in the carrier config when setting up call forward via MMI code and there is no timer value."
+    bug:"342346827"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}
