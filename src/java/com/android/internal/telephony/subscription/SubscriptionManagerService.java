@@ -4498,9 +4498,16 @@ public class SubscriptionManagerService extends ISub.Stub {
      */
     @NonNull
     private String getCallingPackage() {
-        if (Binder.getCallingUid() == Process.PHONE_UID) {
-            // Too many packages running with phone uid. Just return one here.
-            return "com.android.phone";
+        if (Flags.supportPhoneUidCheckForMultiuser()) {
+            if (UserHandle.isSameApp(Binder.getCallingUid(), Process.PHONE_UID)) {
+                // Too many packages running with phone uid. Just return one here.
+                return "com.android.phone";
+            }
+        } else {
+            if (Binder.getCallingUid() == Process.PHONE_UID) {
+                // Too many packages running with phone uid. Just return one here.
+                return "com.android.phone";
+            }
         }
         return Arrays.toString(mContext.getPackageManager().getPackagesForUid(
                 Binder.getCallingUid()));
