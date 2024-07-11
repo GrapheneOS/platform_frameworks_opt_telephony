@@ -217,7 +217,13 @@ public class DeviceStateMonitor extends Handler {
                 public void onDisplayAdded(int displayId) { }
 
                 @Override
-                public void onDisplayRemoved(int displayId) { }
+                public void onDisplayRemoved(int displayId) {
+                    /* adapter for virtual display removed */
+                    boolean screenOn = isScreenOn();
+                    Message msg = obtainMessage(EVENT_SCREEN_STATE_CHANGED);
+                    msg.arg1 = screenOn ? 1 : 0;
+                    sendMessage(msg);
+                }
 
                 @Override
                 public void onDisplayChanged(int displayId) {

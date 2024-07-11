@@ -329,6 +329,10 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mContextFixture.putStringArrayResource(
                 com.android.internal.R.array.config_serviceStateLocationAllowedPackages,
                 new String[0]);
+
+        UserInfo userInfo = new UserInfo(UserHandle.myUserId(), "" /* name */, 0 /* flags */);
+        doReturn(userInfo.id).when(mIActivityManager).getCurrentUserId();
+
         processAllMessages();
         assertEquals(mTelephonyRegistry.asBinder(),
                 ServiceManager.getService("telephony.registry"));
