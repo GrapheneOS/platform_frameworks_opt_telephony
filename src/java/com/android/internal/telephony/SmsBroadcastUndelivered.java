@@ -296,7 +296,8 @@ public class SmsBroadcastUndelivered {
         int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
         CarrierConfigManager configManager =
                 (CarrierConfigManager) context.getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle bundle = configManager.getConfigForSubId(subId);
+        PersistableBundle bundle = null;
+        if (configManager != null) bundle = configManager.getConfigForSubId(subId);
 
         if (bundle != null) {
             return bundle.getLong(CarrierConfigManager.KEY_UNDELIVERED_SMS_MESSAGE_EXPIRATION_TIME,

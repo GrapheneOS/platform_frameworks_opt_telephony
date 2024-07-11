@@ -666,7 +666,9 @@ public class ServiceStateTracker extends Handler {
         mCarrierConfig = getCarrierConfig();
         CarrierConfigManager ccm = mPhone.getContext().getSystemService(CarrierConfigManager.class);
         // Callback which directly handle config change should be executed in handler thread
-        ccm.registerCarrierConfigChangeListener(this::post, mCarrierConfigChangeListener);
+        if (ccm != null) {
+            ccm.registerCarrierConfigChangeListener(this::post, mCarrierConfigChangeListener);
+        }
 
         mAccessNetworksManager = mPhone.getAccessNetworksManager();
         mOutOfServiceSS = new ServiceState();

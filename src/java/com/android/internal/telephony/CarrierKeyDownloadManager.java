@@ -152,7 +152,8 @@ public class CarrierKeyDownloadManager extends Handler {
         CarrierConfigManager carrierConfigManager = mContext.getSystemService(
                 CarrierConfigManager.class);
         // Callback which directly handle config change should be executed on handler thread
-        carrierConfigManager.registerCarrierConfigChangeListener(this::post,
+        if (carrierConfigManager != null) {
+            carrierConfigManager.registerCarrierConfigChangeListener(this::post,
                 (slotIndex, subId, carrierId, specificCarrierId) -> {
                     if (Flags.imsiKeyRetryDownloadOnPhoneUnlock()) {
                         logd("CarrierConfig changed slotIndex = " + slotIndex + " subId = " + subId
@@ -187,6 +188,7 @@ public class CarrierKeyDownloadManager extends Handler {
                         }
                     }
                 });
+        }
         mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
     }
 

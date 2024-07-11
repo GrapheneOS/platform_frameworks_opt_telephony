@@ -247,9 +247,11 @@ public class MultiSimSettingController extends Handler {
 
         CarrierConfigManager ccm = mContext.getSystemService(CarrierConfigManager.class);
         // Listener callback is executed on handler thread to directly handle config change
-        ccm.registerCarrierConfigChangeListener(this::post,
-                (slotIndex, subId, carrierId, specificCarrierId) ->
-                        onCarrierConfigChanged(slotIndex, subId));
+        if (ccm != null) {
+            ccm.registerCarrierConfigChangeListener(this::post,
+                    (slotIndex, subId, carrierId, specificCarrierId) ->
+                            onCarrierConfigChanged(slotIndex, subId));
+        }
 
         mConvertedPsimSubId = getConvertedPsimSubscriptionId();
     }

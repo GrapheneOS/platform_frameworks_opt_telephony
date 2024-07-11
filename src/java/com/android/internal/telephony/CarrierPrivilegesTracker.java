@@ -346,9 +346,11 @@ public class CarrierPrivilegesTracker extends Handler {
         mCarrierConfigManager =
                 (CarrierConfigManager) mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
         // Callback is executed in handler thread and directly handles carrier config update
-        mCarrierConfigManager.registerCarrierConfigChangeListener(this::post,
-                (slotIndex, subId, carrierId, specificCarrierId) -> handleCarrierConfigUpdated(
-                        subId, slotIndex));
+        if (mCarrierConfigManager != null) {
+            mCarrierConfigManager.registerCarrierConfigChangeListener(this::post,
+                    (slotIndex, subId, carrierId, specificCarrierId) -> handleCarrierConfigUpdated(
+                            subId, slotIndex));
+        }
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
         mTelephonyRegistryManager =
                 (TelephonyRegistryManager)
@@ -444,7 +446,8 @@ public class CarrierPrivilegesTracker extends Handler {
                 CarrierConfigManager.getCarrierConfigSubset(
                         mContext, subId, KEY_CARRIER_CERTIFICATE_STRING_ARRAY);
         // CarrierConfigManager#isConfigForIdentifiedCarrier can handle null or empty bundle
-        if (!mCarrierConfigManager.isConfigForIdentifiedCarrier(carrierConfigs)) {
+        if (mCarrierConfigManager == null
+                || !mCarrierConfigManager.isConfigForIdentifiedCarrier(carrierConfigs)) {
             return Collections.EMPTY_LIST;
         }
 

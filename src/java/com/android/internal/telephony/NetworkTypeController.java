@@ -315,7 +315,9 @@ public class NetworkTypeController extends StateMachine {
         filter.addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED);
         mPhone.getContext().registerReceiver(mIntentReceiver, filter, null, mPhone);
         CarrierConfigManager ccm = mPhone.getContext().getSystemService(CarrierConfigManager.class);
-        ccm.registerCarrierConfigChangeListener(Runnable::run, mCarrierConfigChangeListener);
+        if (ccm != null) {
+            ccm.registerCarrierConfigChangeListener(Runnable::run, mCarrierConfigChangeListener);
+        }
     }
 
     private void unRegisterForAllEvents() {
@@ -327,7 +329,7 @@ public class NetworkTypeController extends StateMachine {
                 mDataNetworkControllerCallback);
         mPhone.getContext().unregisterReceiver(mIntentReceiver);
         CarrierConfigManager ccm = mPhone.getContext().getSystemService(CarrierConfigManager.class);
-        if (mCarrierConfigChangeListener != null) {
+        if (ccm != null && mCarrierConfigChangeListener != null) {
             ccm.unregisterCarrierConfigChangeListener(mCarrierConfigChangeListener);
         }
     }
