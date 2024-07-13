@@ -381,9 +381,9 @@ public class SmsDispatchersController extends Handler {
         mImsSmsDispatcher = new ImsSmsDispatcher(phone, this, ImsManager::getConnector);
         mCdmaDispatcher = new CdmaSMSDispatcher(phone, this);
         mGsmInboundSmsHandler = GsmInboundSmsHandler.makeInboundSmsHandler(phone.getContext(),
-                storageMonitor, phone, looper);
+                storageMonitor, phone, looper, mFeatureFlags);
         mCdmaInboundSmsHandler = CdmaInboundSmsHandler.makeInboundSmsHandler(phone.getContext(),
-                storageMonitor, phone, (CdmaSMSDispatcher) mCdmaDispatcher, looper);
+                storageMonitor, phone, (CdmaSMSDispatcher) mCdmaDispatcher, looper, mFeatureFlags);
         mGsmDispatcher = new GsmSMSDispatcher(phone, this, mGsmInboundSmsHandler);
         SmsBroadcastUndelivered.initialize(phone.getContext(),
                 mGsmInboundSmsHandler, mCdmaInboundSmsHandler);

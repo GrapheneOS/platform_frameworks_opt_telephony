@@ -44,6 +44,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncResult;
@@ -109,6 +110,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
     private static final String RAW_TABLE_NAME = "raw";
     private static final Uri sRawUri = Uri.withAppendedPath(Telephony.Sms.CONTENT_URI,
             RAW_TABLE_NAME);
+    private static final UserHandle MOCKED_MAIN_USER = UserHandle.of(0);
 
     private final String mMessageBody = "This is the message body of a single-part message";
     private final String mMessageBodyPart1 = "This is the first part of a multi-part message";
@@ -165,6 +167,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         mSmsFilter = Mockito.mock(InboundSmsHandler.SmsFilter.class);
         mSmsFilter2 = Mockito.mock(InboundSmsHandler.SmsFilter.class);
 
+        when(mFeatureFlags.smsMmsDeliverBroadcastsRedirectToMainUser()).thenReturn(true);
         doReturn(true).when(mTelephonyManager).getSmsReceiveCapableForPhone(anyInt(), anyBoolean());
         doReturn(true).when(mSmsStorageMonitor).isStorageAvailable();
 
@@ -173,7 +176,9 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         doReturn(true).when(userManager).isUserRunning(any(UserHandle.class));
 
         List<UserHandle> userHandles = new ArrayList();
-        userHandles.add(UserHandle.SYSTEM);
+        userHandles.add(MOCKED_MAIN_USER);
+
+        doReturn(MOCKED_MAIN_USER).when(userManager).getMainUser();
         doReturn(userHandles).when(userManager).getUserHandles(anyBoolean());
 
         mSmsMessage.mWrappedSmsMessage = mGsmSmsMessage;
@@ -204,7 +209,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
                 Telephony.Sms.CONTENT_URI.getAuthority(), mContentProvider);
 
         mGsmInboundSmsHandler = GsmInboundSmsHandler.makeInboundSmsHandler(mContext,
-                mSmsStorageMonitor, mPhone, mTestableLooper.getLooper());
+                mSmsStorageMonitor, mPhone, mTestableLooper.getLooper(), mFeatureFlags);
         mSmsFilters = new ArrayList<>();
         mSmsFilters.add(mSmsFilter);
         mSmsFilters.add(mSmsFilter2);
@@ -327,6 +332,33 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         assertEquals("IdleState", getCurrentState().getName());
 
         verifySmsFiltersInvoked(times(1));
+    }
+
+    @Test
+    @MediumTest
+    public void testNewSMSProcessedThroughMainUser() {
+        transitionFromStartupToIdle();
+        UserHandle mockedMainSecUser = UserHandle.of(10);
+
+        UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+        List<UserHandle> userHandles = new ArrayList();
+        userHandles.add(mockedMainSecUser);
+        doReturn(mockedMainSecUser).when(userManager).getMainUser();
+        doReturn(userHandles).when(userManager).getUserHandles(anyBoolean());
+
+        // send new SMS to state machine and verify that it triggers SMS_DELIVER_ACTION
+        // and context being used is from the MAIN user
+        sendNewSms();
+
+        // Verify that the context created to send the broadcast is created from the MAIN user.
+        try {
+            verify(mContext).createPackageContextAsUser(any(String.class),
+                    any(Integer.class), eq(mockedMainSecUser));
+        } catch (PackageManager.NameNotFoundException e) {
+            fail(e.toString());
+        }
+
+        verifySmsIntentBroadcasts(0);
     }
 
     @Test
@@ -1042,7 +1074,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         mContentProvider.insert(sRawUri, mInboundSmsTracker.getContentValues());
 
         // user locked
-        UserManager userManager = (UserManager)mContext.getSystemService(Context.USER_SERVICE);
+        UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
         doReturn(false).when(userManager).isUserUnlocked();
 
         SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
