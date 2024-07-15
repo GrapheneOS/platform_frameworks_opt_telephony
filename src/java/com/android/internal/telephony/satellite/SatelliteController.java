@@ -1779,6 +1779,28 @@ public class SatelliteController extends Handler {
     }
 
     /**
+     * Request to get whether the satellite enabled request is for emergency or not.
+     *
+     * @param subId The subId of the subscription to check whether request is for emergency.
+     * @param result The result receiver that returns whether the request is for emergency
+     *               if the request is successful or an error code if the request failed.
+     */
+    public void requestIsEmergencyModeEnabled(int subId, @NonNull ResultReceiver result) {
+        if (!mFeatureFlags.oemEnabledSatelliteFlag()) {
+            plogd("requestIsEmergencyModeEnabled: oemEnabledSatelliteFlag is disabled");
+            result.send(SatelliteManager.SATELLITE_RESULT_NOT_SUPPORTED, null);
+            return;
+        }
+
+        synchronized (mSatelliteEnabledRequestLock) {
+            Bundle bundle = new Bundle();
+            bundle.putBoolean(SatelliteManager.KEY_EMERGENCY_MODE_ENABLED,
+                    getRequestIsEmergency());
+            result.send(SATELLITE_RESULT_SUCCESS, bundle);
+        }
+    }
+
+    /**
      * Request to get whether the satellite service is supported on the device.
      *
      * @param subId The subId of the subscription to check satellite service support for.

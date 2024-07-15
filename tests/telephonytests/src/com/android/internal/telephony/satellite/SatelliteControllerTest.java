@@ -26,6 +26,7 @@ import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_
 import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_NONE;
 import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_POOR;
 import static android.telephony.satellite.SatelliteManager.KEY_DEMO_MODE_ENABLED;
+import static android.telephony.satellite.SatelliteManager.KEY_EMERGENCY_MODE_ENABLED;
 import static android.telephony.satellite.SatelliteManager.KEY_NTN_SIGNAL_STRENGTH;
 import static android.telephony.satellite.SatelliteManager.KEY_SATELLITE_CAPABILITIES;
 import static android.telephony.satellite.SatelliteManager.KEY_SATELLITE_COMMUNICATION_ALLOWED;
@@ -449,6 +450,23 @@ public class SatelliteControllerTest extends TelephonyTest {
             } catch (Exception ex) {
                 loge("mRequestNtnSignalStrengthReceiver: Got exception in releasing semaphore, ex="
                         + ex);
+            }
+        }
+    };
+
+    private boolean mRequestIsEmergency = false;
+    private ResultReceiver mRequestIsEmergencyReceiver = new ResultReceiver(null) {
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            logd("requestIsEmergencyReceiver: resultCode=" + resultCode);
+            if (resultCode == SATELLITE_RESULT_SUCCESS) {
+                if (resultData.containsKey(KEY_EMERGENCY_MODE_ENABLED)) {
+                    mRequestIsEmergency = resultData.getBoolean(
+                            KEY_EMERGENCY_MODE_ENABLED);
+                } else {
+                    loge("KEY_EMERGENCY_MODE_ENABLED does not exist.");
+
+                }
             }
         }
     };
@@ -1023,6 +1041,42 @@ public class SatelliteControllerTest extends TelephonyTest {
         // disabled
         when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
         verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
+    }
+
+    @Test
+    public void testGetRequestIsEmergency() {
+        mIsSatelliteEnabledSemaphore.drainPermits();
+        doReturn(true).when(mFeatureFlags).carrierRoamingNbIotNtn();
+
+        // Successfully enable satellite
+        mIIntegerConsumerResults.clear();
+        setUpResponseForRequestIsSatelliteSupported(true, SATELLITE_RESULT_SUCCESS);
+        verifySatelliteSupported(true, SATELLITE_RESULT_SUCCESS);
+
+        // Set provisioned state
+        sendProvisionedStateChangedEvent(true, null);
+        processAllMessages();
+        verifySatelliteProvisioned(true, SATELLITE_RESULT_SUCCESS);
+
+        mSatelliteControllerUT.setSettingsKeyForSatelliteModeCalled = false;
+        mSatelliteControllerUT.setSettingsKeyToAllowDeviceRotationCalled = false;
+        // Set response for enabling request
+        setUpResponseForRequestSatelliteEnabled(true, false, true/*emergency*/,
+                SATELLITE_RESULT_SUCCESS);
+        // Request satellite enabling for emergency
+        mSatelliteControllerUT.requestSatelliteEnabled(SUB_ID, true, false, true/*isEmergency*/,
+                mIIntegerConsumer);
+        mSatelliteControllerUT.setSatelliteSessionController(mMockSatelliteSessionController);
+        processAllMessages();
+
+        assertTrue(waitForIIntegerConsumerResult(1));
+        assertEquals(SATELLITE_RESULT_SUCCESS, (long) mIIntegerConsumerResults.get(0));
+        verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
+
+        // Verify satellite enabled for emergency
+        assertTrue(mSatelliteControllerUT.getRequestIsEmergency());
+        mSatelliteControllerUT.requestIsEmergencyModeEnabled(SUB_ID, mRequestIsEmergencyReceiver);
+        assertTrue(mRequestIsEmergency);
     }
 
     @Test
