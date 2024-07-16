@@ -120,7 +120,7 @@ public class CarrierKeyDownloadManager extends Handler {
     private boolean mAllowedOverMeteredNetwork = false;
     private boolean mDeleteOldKeyAfterDownload = false;
     private boolean mIsRequiredToHandleUnlock;
-    private final TelephonyManager mTelephonyManager;
+    private TelephonyManager mTelephonyManager;
     private UserManager mUserManager;
     @VisibleForTesting
     public String mMccMncForDownload = "";
@@ -163,6 +163,13 @@ public class CarrierKeyDownloadManager extends Handler {
                         if ((slotIndex == mPhone.getPhoneId()) && (carrierId > 0
                                 || !TextUtils.isEmpty(
                                 mMccMncForDownload))) {
+                            if (mTelephonyManager == null
+                                    || mTelephonyManager.getSubscriptionId() != subId) {
+                                logd("recreating TelManager with SubId = " + subId);
+                                mTelephonyManager = mContext.getSystemService(
+                                                TelephonyManager.class)
+                                        .createForSubscriptionId(subId);
+                            }
                             mCarrierId = carrierId;
                             updateSimOperator();
                             // If device is screen locked do not proceed to handle
