@@ -24,12 +24,15 @@ import static android.telephony.TelephonyManager.HAL_SERVICE_NETWORK;
 import static android.telephony.TelephonyManager.HAL_SERVICE_SIM;
 import static android.telephony.TelephonyManager.HAL_SERVICE_VOICE;
 
+import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.UserHandle;
 
+import com.android.internal.telephony.flags.Flags;
 import com.android.telephony.Rlog;
 
 /** This class provides wrapper APIs for binding interfaces to mock service. */
@@ -158,7 +161,12 @@ public class MockModem {
         intent.setAction(actionName + phoneId);
         intent.putExtra(PHONE_ID, phoneId);
 
-        status = mContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        if (Flags.supportPhoneUidCheckForMultiuser()) {
+            status = mContext.bindServiceAsUser(intent, serviceConnection, Context.BIND_AUTO_CREATE,
+                    UserHandle.of(ActivityManager.getCurrentUser()));
+        } else {
+            status = mContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        }
         return status;
     }
 
