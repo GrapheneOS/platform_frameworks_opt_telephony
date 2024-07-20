@@ -186,7 +186,8 @@ public class CarrierActionAgent extends Handler {
                         mPhone.getServiceStateTracker().registerForDataRoamingOff(
                                 this, EVENT_DATA_ROAMING_OFF, null, false);
                     }
-                } else if (IccCardConstants.INTENT_VALUE_ICC_ABSENT.equals(iccState)) {
+                } else if (IccCardConstants.INTENT_VALUE_ICC_ABSENT.equals(iccState)
+                        || IccCardConstants.INTENT_VALUE_ICC_NOT_READY.equals(iccState)) {
                     log("EVENT_SIM_STATE_CHANGED status: " + iccState);
                     carrierActionReset();
                     mSettingsObserver.unobserve();
