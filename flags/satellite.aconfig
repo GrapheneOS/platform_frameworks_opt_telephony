@@ -51,3 +51,14 @@ flag {
     description: "This flag controls satellite communication supported by OEMs in phase 2."
     bug:"349624547"
 }
+
+# OWNER=youngtaecha TARGET=24Q4
+flag {
+  name: "geofence_enhancement_for_better_ux"
+  namespace: "telephony"
+  description: "Enhance geofence to improve UX experience"
+  bug: "347711329"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
