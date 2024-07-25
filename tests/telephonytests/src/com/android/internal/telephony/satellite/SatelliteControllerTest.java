@@ -103,6 +103,7 @@ import android.os.Message;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.CarrierConfigManager;
 import android.telephony.CellSignalStrength;
 import android.telephony.NetworkRegistrationInfo;
@@ -3813,6 +3814,46 @@ public class SatelliteControllerTest extends TelephonyTest {
         when(mServiceState2.isUsingNonTerrestrialNetwork()).thenReturn(true);
         assertEquals(timeoutMillisForCarrier1,
                 mSatelliteControllerUT.getCarrierEmergencyCallWaitForConnectionTimeoutMillis());
+    }
+
+    @Test
+    public void testGetWwanIsInService() {
+        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
+                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
+                .thenReturn(new ArrayList<>());
+        assertFalse(mSatelliteControllerUT.getWwanIsInService(mServiceState));
+
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
+                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
+                .thenReturn(List.of(nri));
+        assertTrue(mSatelliteControllerUT.getWwanIsInService(mServiceState));
+
+        nri = new NetworkRegistrationInfo.Builder()
+                .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_ROAMING)
+                .build();
+        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
+                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
+                .thenReturn(List.of(nri));
+        assertTrue(mSatelliteControllerUT.getWwanIsInService(mServiceState));
+
+        nri = new NetworkRegistrationInfo.Builder()
+                .setEmergencyOnly(true)
+                .build();
+        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
+                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
+                .thenReturn(List.of(nri));
+        assertTrue(mSatelliteControllerUT.getWwanIsInService(mServiceState));
+
+        nri = new NetworkRegistrationInfo.Builder().setRegistrationState(
+                NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
+                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
+                .thenReturn(List.of(nri));
+        assertFalse(mSatelliteControllerUT.getWwanIsInService(mServiceState));
     }
 
     private void resetSatelliteControllerUTEnabledState() {

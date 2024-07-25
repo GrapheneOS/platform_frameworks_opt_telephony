@@ -5068,12 +5068,15 @@ public class SatelliteController extends Handler {
         return mDemoPointingNotAlignedDurationMillis;
     }
 
-    private boolean getWwanIsInService(ServiceState serviceState) {
+    /** Returns {@code true} if WWAN is in service, else {@code false}.*/
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+    public boolean getWwanIsInService(@NonNull ServiceState serviceState) {
         List<NetworkRegistrationInfo> nriList = serviceState
                 .getNetworkRegistrationInfoListForTransportType(
                         AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+
         for (NetworkRegistrationInfo nri : nriList) {
-            if (nri.isInService()) {
+            if (nri.isInService() || nri.isEmergencyEnabled()) {
                 logv("getWwanIsInService: return true");
                 return true;
             }

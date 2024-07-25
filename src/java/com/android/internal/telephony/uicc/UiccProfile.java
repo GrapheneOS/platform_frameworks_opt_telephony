@@ -67,6 +67,7 @@ import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.TelephonyStatsLog;
 import com.android.internal.telephony.cat.CatService;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.Flags;
 import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
@@ -1155,7 +1156,9 @@ public class UiccProfile extends IccCard {
 
             // Reload the carrier privilege rules if necessary.
             log("Before privilege rules: " + mCarrierPrivilegeRules + " : " + ics.mCardState);
-            if (mCarrierPrivilegeRules == null && ics.mCardState == CardState.CARDSTATE_PRESENT) {
+            if (mCarrierPrivilegeRules == null && ics.mCardState == CardState.CARDSTATE_PRESENT && (
+                    !Flags.uiccAppCountCheckToCreateChannel()
+                            || mLastReportedNumOfUiccApplications > 0)) {
                 mCarrierPrivilegeRules = new UiccCarrierPrivilegeRules(this,
                         mHandler.obtainMessage(EVENT_CARRIER_PRIVILEGES_LOADED));
             } else if (mCarrierPrivilegeRules != null
