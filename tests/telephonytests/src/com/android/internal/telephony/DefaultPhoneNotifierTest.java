@@ -401,4 +401,13 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         verify(mTelephonyRegistryManager).notifyCarrierRoamingNtnModeChanged(
                 eq(subId), eq(true));
     }
+
+    @Test
+    @SmallTest
+    public void testCarrierRoamingNtnEligibleStateChanged() {
+        int subId = mPhone.getSubId();
+        mDefaultPhoneNotifierUT.notifyCarrierRoamingNtnEligibleStateChanged(mPhone, true);
+        verify(mTelephonyRegistryManager).notifyCarrierRoamingNtnEligibleStateChanged(
+                eq(subId), eq(true));
+    }
 }

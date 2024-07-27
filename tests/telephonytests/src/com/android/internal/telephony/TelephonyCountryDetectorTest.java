@@ -39,6 +39,8 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.os.AsyncResult;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
@@ -47,6 +49,8 @@ import android.util.Log;
 import android.util.Pair;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.internal.annotations.GuardedBy;
 
 import org.junit.After;
 import org.junit.Before;
@@ -322,6 +326,31 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
         verify(mLocationManager).removeUpdates(any(LocationListener.class));
     }
 
+    @Test
+    public void testRegisterUnregisterForWifiConnectivityStateChanged() {
+        WifiConnectivityStateChangedListener listener = new WifiConnectivityStateChangedListener(
+                mLooper);
+
+        mCountryDetectorUT.registerForWifiConnectivityStateChanged(listener,
+                1 /* EVENT_WIFI_CONNECTIVITY_STATE_CHANGED*/, null);
+
+        // Wi-fi becomes available
+        clearInvocations(mLocationManager);
+        mNetworkCapabilities.setTransportType(NetworkCapabilities.TRANSPORT_WIFI, true);
+        mNetworkCallbackCaptor.getValue().onAvailable(mMockNetwork);
+        mTestableLooper.processAllMessages();
+        assertTrue(listener.getIsWifiConnected());
+
+        // Wi-fi becomes not available
+        clearInvocations(mLocationManager);
+        mNetworkCapabilities.setTransportType(NetworkCapabilities.TRANSPORT_WIFI, false);
+        mNetworkCallbackCaptor.getValue().onUnavailable();
+        mTestableLooper.processAllMessages();
+        assertFalse(listener.getIsWifiConnected());
+
+        mCountryDetectorUT.unregisterForWifiConnectivityStateChanged(listener);
+    }
+
     private static boolean isGeoCoderImplemented() {
         return Geocoder.isPresent();
     }
@@ -373,6 +402,39 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
 
         public static long getLocationUpdateRequestQuotaResetTimeoutMillis() {
             return WAIT_FOR_LOCATION_UPDATE_REQUEST_QUOTA_RESET_TIMEOUT_MILLIS;
+        }
+    }
+
+    private static class WifiConnectivityStateChangedListener extends Handler {
+        private static final int EVENT_WIFI_CONNECTIVITY_STATE_CHANGED = 1;
+        private final Object mIsWifiConnectedLock = new Object();
+        @GuardedBy("mIsWifiConnectedLock")
+        private boolean mIsWifiConnected = false;
+
+        WifiConnectivityStateChangedListener(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case EVENT_WIFI_CONNECTIVITY_STATE_CHANGED: {
+                    AsyncResult ar = (AsyncResult) msg.obj;
+                    synchronized (mIsWifiConnectedLock) {
+                        mIsWifiConnected = (boolean) ar.result;
+                    }
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+
+        public boolean getIsWifiConnected() {
+            synchronized (mIsWifiConnectedLock) {
+                return mIsWifiConnected;
+            }
         }
     }
 }

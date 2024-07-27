@@ -16,6 +16,9 @@
 
 package com.android.internal.telephony.satellite;
 
+import static android.telephony.ServiceState.STATE_EMERGENCY_ONLY;
+import static android.telephony.ServiceState.STATE_IN_SERVICE;
+
 import static java.util.stream.Collectors.joining;
 
 import android.annotation.NonNull;
@@ -24,8 +27,11 @@ import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Binder;
 import android.os.PersistableBundle;
+import android.telephony.AccessNetworkConstants;
+import android.telephony.CellIdentity;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.Rlog;
+import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.satellite.AntennaPosition;
 import android.telephony.satellite.NtnSignalStrength;
@@ -36,6 +42,7 @@ import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.stub.NTRadioTechnology;
 import android.telephony.satellite.stub.SatelliteModemState;
 import android.telephony.satellite.stub.SatelliteResult;
+import android.text.TextUtils;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
@@ -391,11 +398,85 @@ public class SatelliteServiceUtils {
         return PhoneFactory.getPhone(SubscriptionManager.getPhoneId(subId));
     }
 
+    /** Return {@code true} if device has cellular coverage, else return {@code false}. */
+    public static boolean isCellularAvailable() {
+        for (Phone phone : PhoneFactory.getPhones()) {
+            ServiceState serviceState = phone.getServiceState();
+            if (serviceState != null) {
+                int state = serviceState.getState();
+                if ((state == STATE_IN_SERVICE || state == STATE_EMERGENCY_ONLY
+                        || serviceState.isEmergencyOnly())
+                        && !isSatellitePlmn(phone.getSubId(), serviceState)) {
+                    logv("isCellularAvailable true");
+                    return true;
+                }
+            }
+        }
+        logv("isCellularAvailable false");
+        return false;
+    }
+
+    /** Check whether device is connected to satellite PLMN */
+    public static boolean isSatellitePlmn(int subId, @NonNull ServiceState serviceState) {
+        List<String> satellitePlmnList =
+                SatelliteController.getInstance().getSatellitePlmnsForCarrier(subId);
+        if (satellitePlmnList.isEmpty()) {
+            logd("isSatellitePlmn: satellitePlmnList is empty");
+            return false;
+        }
+
+        for (NetworkRegistrationInfo nri :
+                serviceState.getNetworkRegistrationInfoListForTransportType(
+                        AccessNetworkConstants.TRANSPORT_TYPE_WWAN)) {
+            String registeredPlmn = nri.getRegisteredPlmn();
+            if (TextUtils.isEmpty(registeredPlmn)) {
+                logd("isSatellitePlmn: registeredPlmn is empty");
+                continue;
+            }
+
+            String mccmnc = getMccMnc(nri);
+            for (String satellitePlmn : satellitePlmnList) {
+                if (TextUtils.equals(satellitePlmn, registeredPlmn)
+                        || TextUtils.equals(satellitePlmn, mccmnc)) {
+                    logd("isSatellitePlmn: return true, satellitePlmn:" + satellitePlmn
+                            + " registeredPlmn:" + registeredPlmn + " mccmnc:" + mccmnc);
+                    return true;
+                }
+            }
+        }
+
+        logd("isSatellitePlmn: return false");
+        return false;
+    }
+
+    /** Get mccmnc string from NetworkRegistrationInfo. */
+    @Nullable
+    public static String getMccMnc(@NonNull NetworkRegistrationInfo nri) {
+        CellIdentity cellIdentity = nri.getCellIdentity();
+        if (cellIdentity == null) {
+            logd("getMccMnc: cellIdentity is null");
+            return null;
+        }
+
+        String mcc = cellIdentity.getMccString();
+        String mnc = cellIdentity.getMncString();
+        if (mcc == null || mnc == null) {
+            logd("getMccMnc: mcc or mnc is null. mcc=" + mcc + " mnc=" + mnc);
+            return null;
+        }
+
+        return mcc + mnc;
+    }
+
     private static void logd(@NonNull String log) {
         Rlog.d(TAG, log);
     }
 
     private static void loge(@NonNull String log) {
         Rlog.e(TAG, log);
+    }
+
+    private static void logv(@NonNull String log) {
+        Rlog.v(TAG, log);
     }
 }

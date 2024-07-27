@@ -324,6 +324,12 @@ public class DefaultPhoneNotifier implements PhoneNotifier {
         mTelephonyRegistryMgr.notifyCarrierRoamingNtnModeChanged(sender.getSubId(), active);
     }
 
+    @Override
+    public void notifyCarrierRoamingNtnEligibleStateChanged(Phone sender, boolean eligible) {
+        mTelephonyRegistryMgr.notifyCarrierRoamingNtnEligibleStateChanged(
+                sender.getSubId(), eligible);
+    }
+
     /**
      * Convert the {@link Call.State} enum into the PreciseCallState.PRECISE_CALL_STATE_* constants
      * for the public API.

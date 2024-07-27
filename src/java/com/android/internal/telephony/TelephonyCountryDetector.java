@@ -35,6 +35,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.RegistrantList;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.telephony.Rlog;
@@ -83,6 +84,8 @@ public class TelephonyCountryDetector extends Handler {
     @NonNull private final Geocoder mGeocoder;
     @NonNull private final LocationManager mLocationManager;
     @NonNull private final ConnectivityManager mConnectivityManager;
+    @NonNull private final RegistrantList mWifiConnectivityStateChangedRegistrantList =
+            new RegistrantList();
     @NonNull private final Object mLock = new Object();
     @NonNull
     @GuardedBy("mLock")
@@ -286,6 +289,8 @@ public class TelephonyCountryDetector extends Handler {
                 handleNetworkCountryCodeChangedEvent((NetworkCountryCodeInfo) msg.obj);
                 break;
             case EVENT_WIFI_CONNECTIVITY_STATE_CHANGED:
+                handleEventWifiConnectivityStateChanged();
+                break;
             case EVENT_LOCATION_UPDATE_REQUEST_QUOTA_RESET:
                 evaluateRequestingLocationUpdates();
                 break;
@@ -470,6 +475,11 @@ public class TelephonyCountryDetector extends Handler {
         evaluateRequestingLocationUpdates();
     }
 
+    private void handleEventWifiConnectivityStateChanged() {
+        mWifiConnectivityStateChangedRegistrantList.notifyResult(isWifiNetworkConnected());
+        evaluateRequestingLocationUpdates();
+    }
+
     private void setLocationCountryCode(@NonNull Pair<String, Long> countryCodeInfo) {
         logd("Set location country code to: " + countryCodeInfo.first);
         if (!isValid(countryCodeInfo.first)) {
@@ -540,6 +550,25 @@ public class TelephonyCountryDetector extends Handler {
         return networkCapabilities != null
                 && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
                 && networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+    }
+
+    /**
+     * Register a callback to receive Wi-Fi connectivity state changes.
+     * @param h Handler for notification message
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForWifiConnectivityStateChanged(@NonNull Handler h, int what,
+            @Nullable Object obj) {
+        mWifiConnectivityStateChangedRegistrantList.add(h, what, obj);
+    }
+
+    /**
+     * Unregisters for Wi-Fi connectivity state changes.
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForWifiConnectivityStateChanged(@NonNull Handler h) {
+        mWifiConnectivityStateChangedRegistrantList.remove(h);
     }
 
     /**

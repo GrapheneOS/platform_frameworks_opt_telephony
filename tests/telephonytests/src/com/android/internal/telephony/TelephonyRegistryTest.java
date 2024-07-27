@@ -45,6 +45,8 @@ import android.os.Build;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.Annotation;
 import android.telephony.BarringInfo;
@@ -75,10 +77,12 @@ import android.util.SparseArray;
 import androidx.annotation.NonNull;
 import androidx.test.filters.SmallTest;
 
+import com.android.internal.telephony.flags.Flags;
 import com.android.server.TelephonyRegistry;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -94,6 +98,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class TelephonyRegistryTest extends TelephonyTest {
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
     // Mocked classes
     private SubscriptionInfo mMockSubInfo;
     private TelephonyRegistry.ConfigurationProvider mMockConfigurationProvider;
@@ -118,6 +124,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
     private int mRegistrationFailReason;
     private Set<Integer> mSimultaneousCallingSubscriptions;
     private boolean mCarrierRoamingNtnMode;
+    private boolean mCarrierRoamingNtnEligible;
 
     // All events contribute to TelephonyRegistry#isPhoneStatePermissionRequired
     private static final Set<Integer> READ_PHONE_STATE_EVENTS;
@@ -294,6 +301,12 @@ public class TelephonyRegistryTest extends TelephonyTest {
         public void onCarrierRoamingNtnModeChanged(boolean active) {
             invocationCount.incrementAndGet();
             mCarrierRoamingNtnMode = active;
+        }
+
+        @Override
+        public void onCarrierRoamingNtnEligibleStateChanged(boolean eligible) {
+            invocationCount.incrementAndGet();
+            mCarrierRoamingNtnEligible = eligible;
         }
     }
 
@@ -1588,5 +1601,21 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.notifyCarrierRoamingNtnModeChanged(subId, true);
         processAllMessages();
         assertTrue(mCarrierRoamingNtnMode);
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN)
+    public void testNotifyCarrierRoamingNtnEligibleStateChanged() {
+        int subId = INVALID_SUBSCRIPTION_ID;
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(0/*slotIndex*/).when(mMockSubInfo).getSimSlotIndex();
+        int[] events = {TelephonyCallback.EVENT_CARRIER_ROAMING_NTN_ELIGIBLE_STATE_CHANGED};
+
+        mTelephonyRegistry.listenWithEventList(false, false, subId, mContext.getOpPackageName(),
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+
+        mTelephonyRegistry.notifyCarrierRoamingNtnEligibleStateChanged(subId, true);
+        processAllMessages();
+        assertTrue(mCarrierRoamingNtnEligible);
     }
 }

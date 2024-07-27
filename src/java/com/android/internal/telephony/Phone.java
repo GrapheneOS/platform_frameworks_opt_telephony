@@ -5326,6 +5326,27 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mNotifier.notifyCarrierRoamingNtnModeChanged(this, active);
     }
 
+    /**
+     * Notify external listeners that the device eligibility to connect to carrier roaming
+     * non-terrestrial network changed.
+     *
+     * @param eligible {@code true} when the device is eligible for satellite
+     * communication if all the following conditions are met:
+     * <ul>
+     * <li>Any subscription on the device supports P2P satellite messaging which is defined by
+     * {@link CarrierConfigManager#KEY_SATELLITE_ATTACH_SUPPORTED_BOOL} </li>
+     * <li>{@link CarrierConfigManager#KEY_CARRIER_ROAMING_NTN_CONNECT_TYPE_INT} set to
+     * {@link CarrierConfigManager#CARRIER_ROAMING_NTN_CONNECT_MANUAL} </li>
+     * <li>The device is in {@link ServiceState#STATE_OUT_OF_SERVICE}, not connected to Wi-Fi,
+     * and the hysteresis timer defined by {@link CarrierConfigManager
+     * #KEY_CARRIER_SUPPORTED_SATELLITE_NOTIFICATION_HYSTERESIS_SEC_INT} is expired. </li>
+     * </ul>
+     */
+    public void notifyCarrierRoamingNtnEligibleStateChanged(boolean eligible) {
+        logd("notifyCarrierRoamingNtnEligibleStateChanged eligible:" + eligible);
+        mNotifier.notifyCarrierRoamingNtnEligibleStateChanged(this, eligible);
+    }
+
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("Phone: subId=" + getSubId());
         pw.println(" mPhoneId=" + mPhoneId);

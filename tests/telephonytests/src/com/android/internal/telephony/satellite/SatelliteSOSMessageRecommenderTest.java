@@ -29,7 +29,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,9 +46,7 @@ import android.os.OutcomeReceiver;
 import android.os.RemoteException;
 import android.telecom.Connection;
 import android.telecom.TelecomManager;
-import android.telephony.AccessNetworkConstants;
 import android.telephony.BinderCacheManager;
-import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -553,75 +550,6 @@ public class SatelliteSOSMessageRecommenderTest extends TelephonyTest {
         mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
         processAllMessages();
         assertEquals(carrierTimeoutMillis, mTestSOSMessageRecommender.getTimeOutMillis());
-    }
-
-    @Test
-    public void testIsSatellitePlmn() {
-        int subId = 1;
-
-        // Satellite PLMN list is empty
-        SatelliteSOSMessageRecommender sosMessageRecommender = new TestSOSMessageRecommender(
-                mContext, Looper.myLooper(), mSatelliteController, mTestImsManager);
-        when(mSatelliteController.getSatellitePlmnsForCarrier(eq(subId)))
-                .thenReturn(new ArrayList<>());
-        assertFalse(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
-
-        // registered PLMN is null
-        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
-                .setRegisteredPlmn(null)
-                .build();
-        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
-                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
-                .thenReturn(List.of(nri));
-        assertFalse(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
-
-        // cell identity is null
-        when(mSatelliteController.getSatellitePlmnsForCarrier(eq(subId))).thenReturn(
-                List.of("120260"));
-        nri = new NetworkRegistrationInfo.Builder()
-                .setRegisteredPlmn("123456")
-                .setCellIdentity(null)
-                .build();
-        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
-                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
-                .thenReturn(List.of(nri));
-        assertFalse(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
-
-        // mcc and mnc are null
-        when(mCellIdentity.getMccString()).thenReturn(null);
-        when(mCellIdentity.getMncString()).thenReturn(null);
-        nri = new NetworkRegistrationInfo.Builder()
-                .setRegisteredPlmn("123456")
-                .setCellIdentity(mCellIdentity)
-                .build();
-        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
-                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
-                .thenReturn(List.of(nri));
-        assertFalse(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
-
-        // mccmnc equal to satellite PLMN
-        when(mCellIdentity.getMccString()).thenReturn("120");
-        when(mCellIdentity.getMncString()).thenReturn("260");
-        nri = new NetworkRegistrationInfo.Builder()
-                .setRegisteredPlmn("123456")
-                .setCellIdentity(mCellIdentity)
-                .build();
-        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
-                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
-                .thenReturn(List.of(nri));
-        assertTrue(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
-
-        // registered PLMN equal to satellite PLMN
-        when(mCellIdentity.getMccString()).thenReturn("123");
-        when(mCellIdentity.getMncString()).thenReturn("456");
-        nri = new NetworkRegistrationInfo.Builder()
-                .setRegisteredPlmn("120260")
-                .setCellIdentity(mCellIdentity)
-                .build();
-        when(mServiceState.getNetworkRegistrationInfoListForTransportType(
-                eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
-                .thenReturn(List.of(nri));
-        assertTrue(sosMessageRecommender.isSatellitePlmn(subId, mServiceState));
     }
 
     private void testStopTrackingCallBeforeTimeout(
