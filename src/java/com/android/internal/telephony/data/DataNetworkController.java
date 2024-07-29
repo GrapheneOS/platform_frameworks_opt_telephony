@@ -2647,7 +2647,7 @@ public class DataNetworkController extends Handler {
                         .unregisterImsRegistrationCallback(oldCallback);
             }
             log("Successfully unregistered " + DataUtils.imsFeatureToString(imsFeature)
-                    + " registration state. sudId=" + subId);
+                    + " registration state. subId=" + subId);
             mImsFeatureRegistrationCallbacks.remove(imsFeature);
         }
     }
@@ -2658,42 +2658,46 @@ public class DataNetworkController extends Handler {
      * @param subId Subscription index.
      */
     private void registerImsStateCallback(int subId) {
-        Function<Integer, ImsStateCallback> imsFeatureStateCallbackFactory =
-                imsFeature -> new ImsStateCallback() {
-                    @Override
-                    public void onUnavailable(int reason) {
-                        // Unregister registration state update when IMS service is unbound.
-                        unregisterImsFeatureRegistrationState(subId, imsFeature);
-                    }
+        if (isImsSupportedOnDevice()) {
+            Function<Integer, ImsStateCallback> imsFeatureStateCallbackFactory =
+                    imsFeature -> new ImsStateCallback() {
+                        @Override
+                        public void onUnavailable(int reason) {
+                            // Unregister registration state update when IMS service is unbound.
+                            unregisterImsFeatureRegistrationState(subId, imsFeature);
+                        }
 
-                    @Override
-                    public void onAvailable() {
-                        mImsFeaturePackageName.put(imsFeature, ImsResolver.getInstance()
-                                .getConfiguredImsServicePackageName(mPhone.getPhoneId(),
-                                        imsFeature));
-                        // Once IMS service is bound, register for registration state update.
-                        registerImsFeatureRegistrationState(subId, imsFeature);
-                    }
+                        @Override
+                        public void onAvailable() {
+                            mImsFeaturePackageName.put(imsFeature, ImsResolver.getInstance()
+                                    .getConfiguredImsServicePackageName(mPhone.getPhoneId(),
+                                            imsFeature));
+                            // Once IMS service is bound, register for registration state update.
+                            registerImsFeatureRegistrationState(subId, imsFeature);
+                        }
 
-                    @Override
-                    public void onError() {
-                    }
-                };
+                        @Override
+                        public void onError() {
+                        }
+                    };
 
-        try {
-            ImsStateCallback callback = imsFeatureStateCallbackFactory
-                    .apply(ImsFeature.FEATURE_MMTEL);
-            mImsManager.getImsMmTelManager(subId).registerImsStateCallback(this::post,
-                    callback);
-            mImsStateCallbacks.put(ImsFeature.FEATURE_MMTEL, callback);
-            log("Successfully register MMTEL state on sub " + subId);
+            try {
+                ImsStateCallback callback = imsFeatureStateCallbackFactory
+                        .apply(ImsFeature.FEATURE_MMTEL);
+                mImsManager.getImsMmTelManager(subId).registerImsStateCallback(this::post,
+                        callback);
+                mImsStateCallbacks.put(ImsFeature.FEATURE_MMTEL, callback);
+                log("Successfully register MMTEL state on sub " + subId);
 
-            callback = imsFeatureStateCallbackFactory.apply(ImsFeature.FEATURE_RCS);
-            mImsManager.getImsRcsManager(subId).registerImsStateCallback(this::post, callback);
-            mImsStateCallbacks.put(ImsFeature.FEATURE_RCS, callback);
-            log("Successfully register RCS state on sub " + subId);
-        } catch (ImsException e) {
-            loge("Exception when registering IMS state callback. " + e);
+                callback = imsFeatureStateCallbackFactory.apply(ImsFeature.FEATURE_RCS);
+                mImsManager.getImsRcsManager(subId).registerImsStateCallback(this::post, callback);
+                mImsStateCallbacks.put(ImsFeature.FEATURE_RCS, callback);
+                log("Successfully register RCS state on sub " + subId);
+            } catch (ImsException e) {
+                loge("Exception when registering IMS state callback. " + e);
+            }
+        } else {
+            log("IMS is not supported on this device, skipping registerImsStateCallback");
         }
     }
 
@@ -2703,19 +2707,31 @@ public class DataNetworkController extends Handler {
      * @param subId Subscription index.
      */
     private void unregisterImsStateCallbacks(int subId) {
-        ImsStateCallback callback = mImsStateCallbacks.get(ImsFeature.FEATURE_MMTEL);
-        if (callback != null) {
-            mImsManager.getImsMmTelManager(subId).unregisterImsStateCallback(callback);
-            mImsStateCallbacks.remove(ImsFeature.FEATURE_MMTEL);
-            log("Unregister MMTEL state on sub " + subId);
-        }
+        if (isImsSupportedOnDevice()) {
+            ImsStateCallback callback = mImsStateCallbacks.get(ImsFeature.FEATURE_MMTEL);
+            if (callback != null) {
+                mImsManager.getImsMmTelManager(subId).unregisterImsStateCallback(callback);
+                mImsStateCallbacks.remove(ImsFeature.FEATURE_MMTEL);
+                log("Unregister MMTEL state on sub " + subId);
+            }
 
-        callback = mImsStateCallbacks.get(ImsFeature.FEATURE_RCS);
-        if (callback != null) {
-            mImsManager.getImsRcsManager(subId).unregisterImsStateCallback(callback);
-            mImsStateCallbacks.remove(ImsFeature.FEATURE_RCS);
-            log("Unregister RCS state on sub " + subId);
+            callback = mImsStateCallbacks.get(ImsFeature.FEATURE_RCS);
+            if (callback != null) {
+                mImsManager.getImsRcsManager(subId).unregisterImsStateCallback(callback);
+                mImsStateCallbacks.remove(ImsFeature.FEATURE_RCS);
+                log("Unregister RCS state on sub " + subId);
+            }
+        } else {
+            log("IMS is not supported on this device, skipping unregisterImsStateCallbacks");
         }
+    }
+
+    /**
+     * called to check if FEATURE_TELEPHONY_IMS feature is available
+     */
+    private boolean isImsSupportedOnDevice() {
+        return mPhone.getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS);
     }
 
     /** Called when subscription info changed. */

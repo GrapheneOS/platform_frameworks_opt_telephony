@@ -44,6 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.annotation.NonNull;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.InetAddresses;
 import android.net.LinkAddress;
@@ -172,6 +173,7 @@ public class DataNetworkControllerTest extends TelephonyTest {
     private RegistrationCallback mMmtelRegCallback;
     private RegistrationCallback mRcsRegCallback;
     private SubscriptionInfo mMockSubInfo;
+    private PackageManager mMockPackageManager;
 
     private int mNetworkRequestId = 0;
 
@@ -863,6 +865,7 @@ public class DataNetworkControllerTest extends TelephonyTest {
         mMockedDataNetworkControllerCallback = Mockito.mock(DataNetworkControllerCallback.class);
         mMockedDataRetryManagerCallback = Mockito.mock(DataRetryManagerCallback.class);
         mMockSubInfo = Mockito.mock(SubscriptionInfo.class);
+        mMockPackageManager = Mockito.mock(PackageManager.class);
         when(mTelephonyComponentFactory.makeDataSettingsManager(any(Phone.class),
                 any(DataNetworkController.class), any(FeatureFlags.class), any(Looper.class),
                 any(DataSettingsManager.DataSettingsManagerCallback.class))).thenCallRealMethod();
@@ -892,6 +895,8 @@ public class DataNetworkControllerTest extends TelephonyTest {
         doReturn(true).when(mFeatureFlags).satelliteInternet();
         doReturn(true).when(mFeatureFlags)
                 .ignoreExistingNetworksForInternetAllowedChecking();
+        when(mContext.getPackageManager()).thenReturn(mMockPackageManager);
+        doReturn(true).when(mMockPackageManager).hasSystemFeature(anyString());
 
         List<SubscriptionInfo> infoList = new ArrayList<>();
         infoList.add(mMockSubInfo);
