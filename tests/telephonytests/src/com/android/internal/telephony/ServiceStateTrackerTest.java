@@ -3082,6 +3082,7 @@ public class ServiceStateTrackerTest extends TelephonyTest {
         doReturn(mImsPhone).when(mPhone).getImsPhone();
         doReturn(ImsRegistrationImplBase.REGISTRATION_TECH_CROSS_SIM).when(mImsPhone)
                 .getImsRegistrationTech();
+        doReturn(true).when(mPhone).isImsRegistered();
         String[] formats = {CROSS_SIM_CALLING_VOICE_FORMAT, "%s"};
         Resources r = mContext.getResources();
         doReturn(formats).when(r).getStringArray(anyInt());
@@ -3234,6 +3235,69 @@ public class ServiceStateTrackerTest extends TelephonyTest {
 
         // wifi-calling is disable
         doReturn(false).when(mPhone).isWifiCallingEnabled();
+
+        // update the spn
+        sst.updateSpnDisplay();
+
+        // Plmn should be shown, and the string is "No service"
+        Bundle b = getExtrasFromLastSpnUpdateIntent();
+        assertThat(b.getString(TelephonyManager.EXTRA_PLMN))
+                .isEqualTo(CARRIER_NAME_DISPLAY_NO_SERVICE);
+        assertThat(b.getBoolean(TelephonyManager.EXTRA_SHOW_PLMN)).isTrue();
+    }
+
+    @Test
+    public void testUpdateSpnDisplayLegacy_CrossSimCallingDataOOS_displayOOS() {
+        mBundle.putBoolean(
+                CarrierConfigManager.KEY_ENABLE_CARRIER_DISPLAY_NAME_RESOLVER_BOOL, false);
+        sendCarrierConfigUpdate(PHONE_ID);
+
+        // GSM phone
+        doReturn(true).when(mPhone).isPhoneTypeGsm();
+
+        // Reg tech is Cross Sim but both data and voice are OOS
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(mServiceState).getState();
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(mServiceState).getDataRegistrationState();
+        doReturn(TelephonyManager.NETWORK_TYPE_IWLAN).when(mServiceState).getDataNetworkType();
+        doReturn(mImsPhone).when(mPhone).getImsPhone();
+        doReturn(ImsRegistrationImplBase.REGISTRATION_TECH_CROSS_SIM).when(
+                mImsPhone).getImsRegistrationTech();
+        sst.mSS = mServiceState;
+
+        // wifi-calling is enabled
+        doReturn(true).when(mPhone).isWifiCallingEnabled();
+
+        // update the spn
+        sst.updateSpnDisplay();
+
+        // Plmn should be shown, and the string is "No service"
+        Bundle b = getExtrasFromLastSpnUpdateIntent();
+        assertThat(b.getString(TelephonyManager.EXTRA_PLMN))
+                .isEqualTo(CARRIER_NAME_DISPLAY_NO_SERVICE);
+        assertThat(b.getBoolean(TelephonyManager.EXTRA_SHOW_PLMN)).isTrue();
+    }
+
+    @Test
+    public void testUpdateSpnDisplayLegacy_CrossSimCallingVoiceOOS_displayOOS() {
+        mBundle.putBoolean(
+                CarrierConfigManager.KEY_ENABLE_CARRIER_DISPLAY_NAME_RESOLVER_BOOL, false);
+        sendCarrierConfigUpdate(PHONE_ID);
+
+        // GSM phone
+        doReturn(true).when(mPhone).isPhoneTypeGsm();
+
+        // voice out of service but data in service (connected to Cross Sim IWLAN)
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(mServiceState).getState();
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mServiceState).getDataRegistrationState();
+        doReturn(TelephonyManager.NETWORK_TYPE_IWLAN).when(mServiceState).getDataNetworkType();
+        doReturn(mImsPhone).when(mPhone).getImsPhone();
+        doReturn(ImsRegistrationImplBase.REGISTRATION_TECH_CROSS_SIM).when(
+                mImsPhone).getImsRegistrationTech();
+        doReturn(false).when(mPhone).isImsRegistered();
+        sst.mSS = mServiceState;
+
+        // wifi-calling is enabled
+        doReturn(true).when(mPhone).isWifiCallingEnabled();
 
         // update the spn
         sst.updateSpnDisplay();
