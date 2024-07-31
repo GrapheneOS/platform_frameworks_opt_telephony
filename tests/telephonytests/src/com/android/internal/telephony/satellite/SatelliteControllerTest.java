@@ -102,6 +102,7 @@ import android.os.Handler;
 import android.os.ICancellationSignal;
 import android.os.Looper;
 import android.os.Message;
+import android.os.OutcomeReceiver;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
@@ -3849,6 +3850,7 @@ public class SatelliteControllerTest extends TelephonyTest {
                     /*slotIndex*/ 0, /*subId*/ SUB_ID, /*carrierId*/ 0, /*specificCarrierId*/ 0)
             );
         }
+        mSatelliteControllerUT.setSatellitePhone(1);
         processAllMessages();
 
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
@@ -3881,6 +3883,7 @@ public class SatelliteControllerTest extends TelephonyTest {
             );
         }
         mSatelliteControllerUT.setSatellitePhone(1);
+        mSatelliteControllerUT.isSatelliteAllowedCallback = null;
         processAllMessages();
         mSatelliteControllerUT.elapsedRealtime = 0;
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
@@ -3892,6 +3895,10 @@ public class SatelliteControllerTest extends TelephonyTest {
         mSatelliteControllerUT.elapsedRealtime = 2 * 60 * 1000;
         moveTimeForward(2 * 60 * 1000);
         processAllMessages();
+        assertNotNull(mSatelliteControllerUT.isSatelliteAllowedCallback);
+
+        mSatelliteControllerUT.isSatelliteAllowedCallback.onResult(true);
+        processAllMessages();
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
         verify(mPhone, times(1)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
         verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
@@ -3902,6 +3909,29 @@ public class SatelliteControllerTest extends TelephonyTest {
         processAllMessages();
         assertFalse(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
         verify(mPhone, times(1)).notifyCarrierRoamingNtnEligibleStateChanged(eq(false));
+        verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
+
+        // isSatelliteAllowedCallback.onError() returns error
+        when(mServiceState.getState()).thenReturn(ServiceState.STATE_OUT_OF_SERVICE);
+        sendServiceStateChangedEvent();
+        processAllMessages();
+        mSatelliteControllerUT.elapsedRealtime = 0;
+        assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
+        verify(mPhone, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
+        verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
+        clearInvocations(mPhone);
+
+        // 2 minutes later and hysteresis timeout is 1 minute
+        mSatelliteControllerUT.elapsedRealtime = 2 * 60 * 1000;
+        moveTimeForward(2 * 60 * 1000);
+        processAllMessages();
+        assertNotNull(mSatelliteControllerUT.isSatelliteAllowedCallback);
+
+        mSatelliteControllerUT.isSatelliteAllowedCallback.onError(new SatelliteException(
+                SATELLITE_RESULT_ERROR));
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
+        verify(mPhone, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
         verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
     }
 
@@ -4677,6 +4707,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         public long elapsedRealtime = 0;
         public int satelliteModeSettingValue = SATELLITE_MODE_ENABLED_FALSE;
         public boolean setSettingsKeyToAllowDeviceRotationCalled = false;
+        public OutcomeReceiver<Boolean, SatelliteException> isSatelliteAllowedCallback = null;
 
         TestSatelliteController(
                 Context context, Looper looper, @NonNull FeatureFlags featureFlags) {
@@ -4728,6 +4759,24 @@ public class SatelliteControllerTest extends TelephonyTest {
             synchronized (mSatellitePhoneLock) {
                 mSatellitePhone = mPhone;
             }
+        }
+
+        @Override
+        protected void requestIsSatelliteCommunicationAllowedForCurrentLocation(
+                @NonNull OutcomeReceiver<Boolean, SatelliteManager.SatelliteException> callback) {
+            logd("requestIsSatelliteCommunicationAllowedForCurrentLocation: callback="
+                    + callback);
+            isSatelliteAllowedCallback = callback;
+        }
+
+        @Override
+        protected boolean isSubscriptionProvisioned(int subId) {
+            synchronized (mSatellitePhoneLock) {
+                if (mSatellitePhone.getSubId() == subId) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
