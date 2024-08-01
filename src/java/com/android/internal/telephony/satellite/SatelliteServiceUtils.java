@@ -28,6 +28,7 @@ import android.os.AsyncResult;
 import android.os.Binder;
 import android.os.PersistableBundle;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.CarrierConfigManager;
 import android.telephony.CellIdentity;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.Rlog;
@@ -62,6 +63,21 @@ import java.util.stream.Collectors;
  */
 public class SatelliteServiceUtils {
     private static final String TAG = "SatelliteServiceUtils";
+
+    /**
+     * Converts a carrier roaming NTN (Non-Terrestrial Network) connect type constant
+     * from {@link CarrierConfigManager} to string.
+     * @param type The carrier roaming NTN connect type constant.
+     * @return A string representation of the connect type, or "Unknown(type)" if not recognized.
+     */
+    public static String carrierRoamingNtnConnectTypeToString(
+            @CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_TYPE int type) {
+        return switch (type) {
+            case CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_AUTOMATIC -> "AUTOMATIC";
+            case CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_MANUAL -> "MANUAL";
+            default -> "Unknown(" + type + ")";
+        };
+    }
 
     /**
      * Convert radio technology from service definition to framework definition.

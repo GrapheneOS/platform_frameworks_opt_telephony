@@ -3268,6 +3268,12 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
         int cause = DisconnectCause.ERROR_UNSPECIFIED;
 
         int code = maybeRemapReasonCode(reasonInfo);
+
+        if (mFeatureFlags.remapDisconnectCauseSipRequestCancelled() &&
+                code == ImsReasonInfo.CODE_SIP_REQUEST_CANCELLED) {
+            return DisconnectCause.NORMAL;
+        }
+
         switch (code) {
             case ImsReasonInfo.CODE_SIP_ALTERNATE_EMERGENCY_CALL:
                 return DisconnectCause.IMS_SIP_ALTERNATE_EMERGENCY_CALL;

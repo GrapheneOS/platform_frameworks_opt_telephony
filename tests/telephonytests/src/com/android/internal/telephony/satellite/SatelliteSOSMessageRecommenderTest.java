@@ -44,6 +44,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.OutcomeReceiver;
 import android.os.RemoteException;
+import android.platform.test.flag.junit.SetFlagsRule;
 import android.telecom.Connection;
 import android.telecom.TelecomManager;
 import android.telephony.BinderCacheManager;
@@ -65,9 +66,11 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.Flags;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -108,6 +111,8 @@ public class SatelliteSOSMessageRecommenderTest extends TelephonyTest {
     private ImsManager.MmTelFeatureConnectionFactory mMmTelFeatureConnectionFactory;
     @Mock
     private FeatureFlags mFeatureFlags;
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
     private TestConnection mTestConnection;
     private Uri mTestConnectionAddress = Uri.parse("tel:1234");
     private TestSOSMessageRecommender mTestSOSMessageRecommender;
@@ -127,6 +132,7 @@ public class SatelliteSOSMessageRecommenderTest extends TelephonyTest {
                 R.integer.config_emergency_call_wait_for_connection_timeout_millis))
                 .thenReturn(TEST_EMERGENCY_CALL_TO_SOS_MSG_HYSTERESIS_TIMEOUT_MILLIS);
         when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
         mTestSatelliteController = new TestSatelliteController(mContext,
                 Looper.myLooper(), mFeatureFlags);
         mTestImsManager = new TestImsManager(
@@ -550,6 +556,51 @@ public class SatelliteSOSMessageRecommenderTest extends TelephonyTest {
         mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
         processAllMessages();
         assertEquals(carrierTimeoutMillis, mTestSOSMessageRecommender.getTimeOutMillis());
+    }
+
+    @Test
+    public void testGetEmergencyCallToSatelliteHandoverType_SatelliteViaCarrierAndOemAvailable() {
+        mSetFlagsRule.enableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
+
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(true);
+        mTestSatelliteController.mIsSatelliteViaOemProvisioned = true;
+        mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
+        assertEquals(EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_T911,
+                mTestSOSMessageRecommender.getEmergencyCallToSatelliteHandoverType());
+
+        mSetFlagsRule.disableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
+    }
+
+    @Test
+    public void testGetEmergencyCallToSatelliteHandoverType_OnlySatelliteViaCarrierAvailable() {
+        mSetFlagsRule.enableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
+
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(true);
+        mTestSatelliteController.mIsSatelliteViaOemProvisioned = false;
+        mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
+        assertEquals(EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_T911,
+                mTestSOSMessageRecommender.getEmergencyCallToSatelliteHandoverType());
+
+        mSetFlagsRule.disableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
+    }
+
+    @Test
+    public void testGetEmergencyCallToSatelliteHandoverType_OemAndCarrierNotAvailable() {
+        mSetFlagsRule.enableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
+
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(false);
+        mTestSatelliteController.mIsSatelliteViaOemProvisioned = true;
+        mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
+        assertEquals(EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_SOS,
+                mTestSOSMessageRecommender.getEmergencyCallToSatelliteHandoverType());
+
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(false);
+        mTestSatelliteController.mIsSatelliteViaOemProvisioned = false;
+        mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
+        assertEquals(EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_SOS,
+                mTestSOSMessageRecommender.getEmergencyCallToSatelliteHandoverType());
+
+        mSetFlagsRule.disableFlags(Flags.FLAG_CARRIER_ROAMING_NB_IOT_NTN);
     }
 
     private void testStopTrackingCallBeforeTimeout(

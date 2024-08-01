@@ -17,6 +17,7 @@
 package com.android.internal.telephony.satellite;
 
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
+import static android.telephony.CarrierConfigManager.KEY_CARRIER_ROAMING_NTN_EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_INT;
 import static android.telephony.ServiceState.STATE_EMERGENCY_ONLY;
 import static android.telephony.ServiceState.STATE_IN_SERVICE;
 import static android.telephony.ServiceState.STATE_OUT_OF_SERVICE;
@@ -42,6 +43,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.OutcomeReceiver;
+import android.os.PersistableBundle;
 import android.os.SystemProperties;
 import android.provider.DeviceConfig;
 import android.telecom.Connection;
@@ -68,6 +70,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SmsApplication;
+import com.android.internal.telephony.flags.Flags;
 import com.android.internal.telephony.metrics.SatelliteStats;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -702,8 +705,19 @@ public class SatelliteSOSMessageRecommender extends Handler {
         return telephonyManager.isMultiSimEnabled();
     }
 
-    private int getEmergencyCallToSatelliteHandoverType() {
-        if (isSatelliteViaCarrierAvailable()) {
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    public int getEmergencyCallToSatelliteHandoverType() {
+        if (Flags.carrierRoamingNbIotNtn() && isSatelliteViaOemAvailable()
+                && isSatelliteViaCarrierAvailable()) {
+            Phone satellitePhone = mSatelliteController.getSatellitePhone();
+            if (satellitePhone == null) {
+                ploge("getEmergencyCallToSatelliteHandoverType: satellitePhone is null");
+                return EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_T911;
+            }
+            int satelliteSubId = satellitePhone.getSubId();
+            return mSatelliteController.getCarrierRoamingNtnEmergencyCallToSatelliteHandoverType(
+                    satelliteSubId);
+        } else if (isSatelliteViaCarrierAvailable()) {
             return EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_T911;
         } else {
             return EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_SOS;

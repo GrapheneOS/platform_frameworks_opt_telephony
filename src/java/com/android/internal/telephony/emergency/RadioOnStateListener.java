@@ -148,6 +148,11 @@ public class RadioOnStateListener {
         public void onSatelliteModemStateChanged(int state) {
             mHandler.obtainMessage(MSG_SATELLITE_ENABLED_CHANGED).sendToTarget();
         }
+
+        @Override
+        public void onEmergencyModeChanged(boolean isEmergency) {
+            Rlog.d(TAG, "onEmergencyModeChanged: ignored " + isEmergency);
+        }
     };
 
     private Callback mCallback; // The callback to notify upon completion.

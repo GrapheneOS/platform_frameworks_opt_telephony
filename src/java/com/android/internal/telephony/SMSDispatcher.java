@@ -1017,8 +1017,8 @@ public abstract class SMSDispatcher extends Handler {
      */
     protected void notifySmsSentFailedToEmergencyStateTracker(SmsTracker tracker,
             boolean isOverIms) {
-        mSmsDispatchersController.notifySmsSentFailedToEmergencyStateTracker(
-                tracker.mDestAddress, tracker.mMessageId, isOverIms);
+        mSmsDispatchersController.notifySmsSent(tracker.mDestAddress, tracker.mMessageId,
+                isOverIms, true /*isLastSmsPart*/, false /*success*/);
     }
 
     /**
@@ -1053,9 +1053,9 @@ public abstract class SMSDispatcher extends Handler {
             }
             tracker.onSent(mContext);
             mPhone.notifySmsSent(tracker.mDestAddress);
-            mSmsDispatchersController.notifySmsSentToEmergencyStateTracker(
+            mSmsDispatchersController.notifySmsSent(
                     tracker.mDestAddress, tracker.mMessageId, false,
-                    tracker.isSinglePartOrLastPart());
+                    tracker.isSinglePartOrLastPart(), true /*success*/);
 
             mPhone.getSmsStats().onOutgoingSms(
                     tracker.mImsRetry > 0 /* isOverIms */,

@@ -16,6 +16,7 @@
 
 package com.android.internal.telephony.satellite;
 
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_FAILED;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_NONE;
@@ -37,6 +38,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.telephony.DropBoxManagerLoggerBackend;
@@ -51,10 +53,14 @@ import android.util.Log;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.DeviceStateMonitor;
 import com.android.internal.telephony.ExponentialBackoff;
+import com.android.internal.telephony.IIntegerConsumer;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.flags.FeatureFlags;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -105,18 +111,24 @@ public class SatelliteSessionController extends StateMachine {
     protected static final int EVENT_NB_IOT_INACTIVITY_TIMER_TIMED_OUT = 6;
     private static final int EVENT_SATELLITE_ENABLEMENT_STARTED = 7;
     private static final int EVENT_SATELLITE_ENABLEMENT_FAILED = 8;
+    private static final int EVENT_SCREEN_STATE_CHANGED = 9;
+    protected static final int EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT = 10;
 
     private static final long REBIND_INITIAL_DELAY = 2 * 1000; // 2 seconds
     private static final long REBIND_MAXIMUM_DELAY = 64 * 1000; // 1 minute
     private static final int REBIND_MULTIPLIER = 2;
+    private static final int DEFAULT_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC = 30;
+
     @NonNull private final ExponentialBackoff mExponentialBackoff;
     @NonNull private final Object mLock = new Object();
+    @NonNull private final Phone mPhone;
     @Nullable
     private ISatelliteGateway mSatelliteGatewayService;
     private String mSatelliteGatewayServicePackageName = "";
     @Nullable private SatelliteGatewayServiceConnection mSatelliteGatewayServiceConnection;
     private boolean mIsBound;
     private boolean mIsBinding;
+    private boolean mIsRegisteredScreenStateChanged = false;
 
     @NonNull private static SatelliteSessionController sInstance;
 
@@ -141,11 +153,16 @@ public class SatelliteSessionController extends StateMachine {
     @SatelliteManager.SatelliteModemState private int mPreviousState;
     final boolean mIsSatelliteSupported;
     private boolean mIsDemoMode = false;
+    // Interested in screen off, so use default value true
+    boolean mIsScreenOn = true;
     @GuardedBy("mLock")
     @NonNull private boolean mIsDisableCellularModemInProgress = false;
     @NonNull private final SatelliteController mSatelliteController;
     @NonNull private final DatagramController mDatagramController;
     @Nullable private PersistentLogger mPersistentLogger = null;
+    @Nullable private DeviceStateMonitor mDeviceStateMonitor;
+
+    @NonNull private FeatureFlags mFeatureFlags;
 
     /**
      * @return The singleton instance of SatelliteSessionController.
@@ -172,6 +189,10 @@ public class SatelliteSessionController extends StateMachine {
             @NonNull FeatureFlags featureFlags,
             boolean isSatelliteSupported) {
         if (sInstance == null || isSatelliteSupported != sInstance.mIsSatelliteSupported) {
+            if (sInstance != null) {
+                sInstance.cleanUpResource();
+            }
+
             sInstance = new SatelliteSessionController(
                     context,
                     looper,
@@ -204,6 +225,7 @@ public class SatelliteSessionController extends StateMachine {
         }
 
         mContext = context;
+        mFeatureFlags = featureFlags;
         mSatelliteModemInterface = satelliteModemInterface;
         mSatelliteController = SatelliteController.getInstance();
         mDatagramController = DatagramController.getInstance();
@@ -233,6 +255,9 @@ public class SatelliteSessionController extends StateMachine {
             }
             bindService();
         });
+
+        mPhone = SatelliteServiceUtils.getPhone();
+        mDeviceStateMonitor = mPhone.getDeviceStateMonitor();
 
         addState(mUnavailableState);
         addState(mPowerOffState);
@@ -308,6 +333,35 @@ public class SatelliteSessionController extends StateMachine {
     }
 
     /**
+     * {@link SatelliteController} uses this function to notify {@link SatelliteSessionController}
+     * that the satellite emergency mode has changed.
+     *
+     * @param isEmergencyMode The satellite emergency mode.
+     */
+    public void onEmergencyModeChanged(boolean isEmergencyMode) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            plogd("onEmergencyModeChanged: carrierRoamingNbIotNtn is disabled");
+            return;
+        }
+
+        plogd("onEmergencyModeChanged " + isEmergencyMode);
+
+        List<ISatelliteModemStateCallback> toBeRemoved = new ArrayList<>();
+        mListeners.values().forEach(listener -> {
+            try {
+                listener.onEmergencyModeChanged(isEmergencyMode);
+            } catch (RemoteException e) {
+                plogd("onEmergencyModeChanged RemoteException: " + e);
+                toBeRemoved.add(listener);
+            }
+        });
+
+        toBeRemoved.forEach(listener -> {
+            mListeners.remove(listener.asBinder());
+        });
+    }
+
+    /**
      * Registers for modem state changed from satellite modem.
      *
      * @param callback The callback to handle the satellite modem state changed event.
@@ -316,6 +370,9 @@ public class SatelliteSessionController extends StateMachine {
             @NonNull ISatelliteModemStateCallback callback) {
         try {
             callback.onSatelliteModemStateChanged(mCurrentState);
+            if (mFeatureFlags.carrierRoamingNbIotNtn()) {
+                callback.onEmergencyModeChanged(mSatelliteController.getRequestIsEmergency());
+            }
             mListeners.put(callback.asBinder(), callback);
         } catch (RemoteException ex) {
             ploge("registerForSatelliteModemStateChanged: Got RemoteException ex=" + ex);
@@ -422,6 +479,15 @@ public class SatelliteSessionController extends StateMachine {
         return getCurrentState() == mEnablingState;
     }
 
+    /**
+     * Release all resource.
+     */
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    public void cleanUpResource() {
+        if (DBG) plogd("cleanUpResource");
+        unregisterForScreenStateChanged();
+    }
+
     private boolean isDemoMode() {
         return mIsDemoMode;
     }
@@ -468,6 +534,8 @@ public class SatelliteSessionController extends StateMachine {
             stopNbIotInactivityTimer();
             DemoSimulator.getInstance().onSatelliteModeOff();
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_OFF);
+
+            unregisterForScreenStateChanged();
         }
 
         @Override
@@ -539,6 +607,8 @@ public class SatelliteSessionController extends StateMachine {
                     transitionTo(mIdleState);
                 }
                 DemoSimulator.getInstance().onSatelliteModeOn();
+
+                registerForScreenStateChanged();
             } else {
                 /*
                  * During the state transition from ENABLING to NOT_CONNECTED, modem might be
@@ -560,6 +630,8 @@ public class SatelliteSessionController extends StateMachine {
             mPreviousState = mCurrentState;
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_DISABLING_SATELLITE;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_DISABLING_SATELLITE);
+
+            unregisterForScreenStateChanged();
         }
 
         @Override
@@ -637,6 +709,12 @@ public class SatelliteSessionController extends StateMachine {
                     break;
                 case EVENT_SATELLITE_ENABLEMENT_STARTED:
                     handleSatelliteEnablementStarted((boolean) msg.obj);
+                    break;
+                case EVENT_SCREEN_STATE_CHANGED:
+                    handleEventScreenStateChanged((AsyncResult) msg.obj);
+                    break;
+                case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                    handleEventScreenOffInactivityTimerTimedOut();
                     break;
             }
             // Ignore all unexpected events.
@@ -732,6 +810,12 @@ public class SatelliteSessionController extends StateMachine {
                 case EVENT_SATELLITE_ENABLEMENT_STARTED:
                     handleSatelliteEnablementStarted((boolean) msg.obj);
                     break;
+                case EVENT_SCREEN_STATE_CHANGED:
+                    handleEventScreenStateChanged((AsyncResult) msg.obj);
+                    break;
+                case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                    handleEventScreenOffInactivityTimerTimedOut();
+                    break;
             }
             // Ignore all unexpected events.
             return HANDLED;
@@ -803,6 +887,12 @@ public class SatelliteSessionController extends StateMachine {
                 case EVENT_SATELLITE_ENABLEMENT_STARTED:
                     handleSatelliteEnablementStarted((boolean) msg.obj);
                     break;
+                case EVENT_SCREEN_STATE_CHANGED:
+                    handleEventScreenStateChanged((AsyncResult) msg.obj);
+                    break;
+                case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                    handleEventScreenOffInactivityTimerTimedOut();
+                    break;
             }
             // Ignore all unexpected events.
             return HANDLED;
@@ -865,6 +955,12 @@ public class SatelliteSessionController extends StateMachine {
                     break;
                 case EVENT_SATELLITE_ENABLEMENT_STARTED:
                     handleSatelliteEnablementStarted((boolean) msg.obj);
+                    break;
+                case EVENT_SCREEN_STATE_CHANGED:
+                    handleEventScreenStateChanged((AsyncResult) msg.obj);
+                    break;
+                case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                    handleEventScreenOffInactivityTimerTimedOut();
                     break;
             }
             // Ignore all unexpected events.
@@ -932,6 +1028,12 @@ public class SatelliteSessionController extends StateMachine {
                 case EVENT_SATELLITE_ENABLEMENT_STARTED:
                     handleSatelliteEnablementStarted((boolean) msg.obj);
                     break;
+                case EVENT_SCREEN_STATE_CHANGED:
+                    handleEventScreenStateChanged((AsyncResult) msg.obj);
+                    break;
+                case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                    handleEventScreenOffInactivityTimerTimedOut();
+                    break;
             }
             // Ignore all unexpected events.
             return HANDLED;
@@ -983,6 +1085,12 @@ public class SatelliteSessionController extends StateMachine {
                 break;
             case EVENT_SATELLITE_ENABLEMENT_FAILED:
                 whatString = "EVENT_SATELLITE_ENABLEMENT_FAILED";
+                break;
+            case EVENT_SCREEN_STATE_CHANGED:
+                whatString = "EVENT_SCREEN_STATE_CHANGED";
+                break;
+            case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
+                whatString = "EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT";
                 break;
             default:
                 whatString = "UNKNOWN EVENT " + what;
@@ -1103,6 +1211,7 @@ public class SatelliteSessionController extends StateMachine {
             mSatelliteGatewayServiceConnection = null;
         }
     }
+
     private class SatelliteGatewayServiceConnection implements ServiceConnection {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -1141,6 +1250,100 @@ public class SatelliteSessionController extends StateMachine {
         if (!enabled) {
             transitionTo(mDisablingState);
         }
+    }
+
+    private void registerForScreenStateChanged() {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            Rlog.d(TAG, "registerForScreenStateChanged: carrierRoamingNbIotNtn is disabled");
+            return;
+        }
+
+        if (mSatelliteController.getRequestIsEmergency()) {
+            if (DBG) logd("registerScreenOnOffChanged: Emergency mode");
+            // screen on/off timer is available in not emergency mode
+            return;
+        }
+
+        if (!mIsRegisteredScreenStateChanged && mDeviceStateMonitor != null) {
+            mDeviceStateMonitor.registerForScreenStateChanged(
+                    getHandler(), EVENT_SCREEN_STATE_CHANGED, null);
+
+            mIsRegisteredScreenStateChanged = true;
+            plogd("registerForScreenStateChanged: registered");
+        } else {
+            plogw("registerForScreenStateChanged: skip register, mIsRegisteredScreenStateChanged="
+                    + mIsRegisteredScreenStateChanged + ","
+                    + " mDeviceStateMonitor=" + (mDeviceStateMonitor != null));
+        }
+    }
+
+    private void unregisterForScreenStateChanged() {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            Rlog.d(TAG, "unregisterForScreenStateChanged: carrierRoamingNbIotNtn is disabled");
+            return;
+        }
+
+        if (mIsRegisteredScreenStateChanged && mDeviceStateMonitor != null) {
+            mDeviceStateMonitor.unregisterForScreenStateChanged(getHandler());
+            removeMessages(EVENT_SCREEN_STATE_CHANGED);
+            removeMessages(EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT);
+
+            removeDeferredMessages(EVENT_SCREEN_STATE_CHANGED);
+            removeDeferredMessages(EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT);
+
+            mIsRegisteredScreenStateChanged = false;
+            plogd("unregisterForScreenStateChanged: unregistered");
+        }
+    }
+
+    private void handleEventScreenStateChanged(AsyncResult asyncResult) {
+        if (asyncResult == null) {
+            ploge("handleEventScreenStateChanged: asyncResult is null");
+            return;
+        }
+
+        boolean screenOn = (boolean) asyncResult.result;
+        if (mIsScreenOn == screenOn) {
+            if (DBG) plogd("handleEventScreenStateChanged: screen state is not changed");
+            return;
+        }
+        mIsScreenOn = screenOn;
+
+        if (!screenOn) {
+            // Screen off, start timer
+            int timeoutMillis = getScreenOffInactivityTimeoutDurationSec() * 1000;
+            sendMessageDelayed(EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT, timeoutMillis);
+
+            plogd("handleEventScreenStateChanged: start timer " + timeoutMillis);
+        } else {
+            // Screen on, stop timer
+            removeMessages(EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT);
+
+            plogd("handleEventScreenStateChanged: stop timer");
+        }
+    }
+
+    private int getScreenOffInactivityTimeoutDurationSec() {
+        PersistableBundle config = mSatelliteController.getPersistableBundle(
+                mPhone.getSubId());
+
+        return config.getInt(KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
+                DEFAULT_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC);
+    }
+
+    private void handleEventScreenOffInactivityTimerTimedOut() {
+        plogd("handleEventScreenOffInactivityTimerTimedOut: request disable satellite");
+
+        mSatelliteController.requestSatelliteEnabled(mPhone.getSubId(),
+                false /*enableSatellite*/,
+                false /*enableDemoMode*/,
+                mSatelliteController.getRequestIsEmergency() /*isEmergency*/,
+                new IIntegerConsumer.Stub() {
+                    @Override
+                    public void accept(int result) {
+                        plogd("requestSatelliteEnabled result=" + result);
+                    }
+                });
     }
 
     private boolean isMockModemAllowed() {

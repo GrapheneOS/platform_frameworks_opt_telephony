@@ -239,6 +239,12 @@ public class PhoneFactory {
                 }
                 Rlog.i(LOG_TAG, "defaultSmsApplication: " + packageName);
 
+                if (sFeatureFlags.smsMmsDeliverBroadcastsRedirectToMainUser()) {
+                    // Explicitly call this, even if the user has no default Sms application, to
+                    // ensure that the System apps have the appropriate permissions.
+                    SmsApplication.grantPermissionsToSystemApps(context);
+                }
+
                 // Set up monitor to watch for changes to SMS packages
                 SmsApplication.initSmsPackageMonitor(context);
 

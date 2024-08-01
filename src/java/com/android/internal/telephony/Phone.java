@@ -4921,6 +4921,14 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
+     * @return The sms dispatchers controller
+     */
+    @Nullable
+    public SmsDispatchersController getSmsDispatchersController() {
+        return null;
+    }
+
+    /**
      * @return The data settings manager
      */
     @NonNull

@@ -1477,6 +1477,17 @@ public class ImsPhoneCallTrackerTest extends TelephonyTest {
 
     @Test
     @SmallTest
+    public void testSipRequestCancelled() {
+        doReturn(true).when(mFeatureFlags).remapDisconnectCauseSipRequestCancelled();
+
+        assertEquals(DisconnectCause.NORMAL,
+                mCTUT.getDisconnectCauseFromReasonInfo(
+                        new ImsReasonInfo(ImsReasonInfo.CODE_SIP_REQUEST_CANCELLED, 0),
+                        Call.State.DIALING));
+    }
+
+    @Test
+    @SmallTest
     public void testLowBatteryDisconnectDialing() {
         assertEquals(DisconnectCause.DIAL_LOW_BATTERY, mCTUT.getDisconnectCauseFromReasonInfo(
                 new ImsReasonInfo(ImsReasonInfo.CODE_LOCAL_LOW_BATTERY, 0), Call.State.DIALING));

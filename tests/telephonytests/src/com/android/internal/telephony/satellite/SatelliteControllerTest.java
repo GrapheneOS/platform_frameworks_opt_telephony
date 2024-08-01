@@ -543,6 +543,7 @@ public class SatelliteControllerTest extends TelephonyTest {
                 .onSatelliteEnabledStateChanged(anyBoolean());
         doNothing().when(mMockSatelliteSessionController).onSatelliteModemStateChanged(anyInt());
         doNothing().when(mMockSatelliteSessionController).setDemoMode(anyBoolean());
+        doNothing().when(mMockSatelliteSessionController).cleanUpResource();
         doNothing().when(mMockControllerMetricsStats).onSatelliteEnabled();
         doNothing().when(mMockControllerMetricsStats).reportServiceEnablementSuccessCount();
         doNothing().when(mMockControllerMetricsStats).reportServiceEnablementFailCount();
@@ -569,6 +570,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         doNothing().when(mMockProvisionMetricsStats).reportProvisionMetrics();
         doNothing().when(mMockControllerMetricsStats).reportDeprovisionCount(anyInt());
         when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(false);
         doReturn(mSST).when(mPhone).getServiceStateTracker();
         doReturn(mSST).when(mPhone2).getServiceStateTracker();
         doReturn(mServiceState).when(mSST).getServiceState();
@@ -817,6 +819,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertTrue(waitForIIntegerConsumerResult(1));
         assertEquals(SATELLITE_RESULT_SUCCESS, (long) mIIntegerConsumerResults.get(0));
         verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
+        verify(mMockSatelliteSessionController, times(2)).onEmergencyModeChanged(eq(false));
         assertTrue(mSatelliteControllerUT.setSettingsKeyForSatelliteModeCalled);
         assertTrue(mSatelliteControllerUT.setSettingsKeyToAllowDeviceRotationCalled);
         assertEquals(
@@ -837,6 +840,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         sendSatelliteModemStateChangedEvent(SATELLITE_MODEM_STATE_OFF, null);
         processAllMessages();
         verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
+        verify(mMockSatelliteSessionController, times(3)).onEmergencyModeChanged(eq(false));
         assertTrue(mSatelliteControllerUT.setSettingsKeyForSatelliteModeCalled);
         assertTrue(mSatelliteControllerUT.setSettingsKeyToAllowDeviceRotationCalled);
         assertEquals(
@@ -1367,6 +1371,11 @@ public class SatelliteControllerTest extends TelephonyTest {
             public void onSatelliteModemStateChanged(int state) {
                 logd("onSatelliteModemStateChanged: state=" + state);
             }
+
+            @Override
+            public void onEmergencyModeChanged(boolean isEmergency) {
+                logd("onEmergencyModeChanged: emergency=" + isEmergency);
+            }
         };
         int errorCode = mSatelliteControllerUT.registerForSatelliteModemStateChanged(
                 SUB_ID, callback);
@@ -1389,6 +1398,11 @@ public class SatelliteControllerTest extends TelephonyTest {
             @Override
             public void onSatelliteModemStateChanged(int state) {
                 logd("onSatelliteModemStateChanged: state=" + state);
+            }
+
+            @Override
+            public void onEmergencyModeChanged(boolean isEmergency) {
+                logd("onEmergencyModeChanged: emergency=" + isEmergency);
             }
         };
         mSatelliteControllerUT.unregisterForModemStateChanged(SUB_ID, callback);
@@ -3392,14 +3406,13 @@ public class SatelliteControllerTest extends TelephonyTest {
     }
 
     @Test
-    public void testHandleEventServiceStateChanged() throws Exception {
+    public void testHandleEventServiceStateChanged() {
         when(mFeatureFlags.carrierEnabledSatelliteFlag()).thenReturn(true);
         // Do nothing when the satellite is not connected
         doReturn(false).when(mServiceState).isUsingNonTerrestrialNetwork();
         sendServiceStateChangedEvent();
         processAllMessages();
-        assertEquals(false,
-                mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
+        assertFalse(mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
         verify(mMockNotificationManager, never()).notifyAsUser(anyString(), anyInt(), any(), any());
 
         // Check sending a system notification when the satellite is connected
@@ -3408,8 +3421,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         processAllMessages();
         verify(mMockNotificationManager, times(1)).notifyAsUser(anyString(), anyInt(), any(),
                 any());
-        assertEquals(true,
-                mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
+        assertTrue(mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
 
         // Check don't display again after displayed already a system notification.
         sendServiceStateChangedEvent();
@@ -3902,6 +3914,8 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
         verify(mPhone, times(1)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
         verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
+        verify(mMockNotificationManager, times(1)).notifyAsUser(anyString(), anyInt(), any(),
+                any());
         clearInvocations(mPhone);
 
         when(mServiceState.getState()).thenReturn(ServiceState.STATE_IN_SERVICE);
@@ -3933,6 +3947,8 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
         verify(mPhone, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
         verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
+        verify(mMockNotificationManager, times(1)).cancelAsUser(anyString(), anyInt(),
+                any());
     }
 
     @Test

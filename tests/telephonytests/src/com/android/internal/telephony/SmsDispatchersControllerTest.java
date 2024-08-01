@@ -17,6 +17,7 @@
 package com.android.internal.telephony;
 
 import static com.android.internal.telephony.SmsResponse.NO_ERROR_CODE;
+import static com.android.internal.telephony.SmsDispatchersController.PendingRequest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -28,6 +29,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
@@ -64,6 +66,7 @@ import com.android.internal.telephony.domainselection.EmergencySmsDomainSelectio
 import com.android.internal.telephony.domainselection.SmsDomainSelectionConnection;
 import com.android.internal.telephony.emergency.EmergencyStateTracker;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.satellite.DatagramDispatcher;
 import com.android.internal.telephony.uicc.IccUtils;
 
 import org.junit.After;
@@ -112,12 +115,12 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
 
         public void testNotifySmsSentToEmergencyStateTracker(String destAddr, long messageId,
                 boolean isOverIms, boolean isLastSmsPart) {
-            notifySmsSentToEmergencyStateTracker(destAddr, messageId, isOverIms, isLastSmsPart);
+            notifySmsSent(destAddr, messageId, isOverIms, isLastSmsPart, true/*success*/);
         }
 
         public void testNotifySmsSentFailedToEmergencyStateTracker(String destAddr,
                 long messageId, boolean isOverIms) {
-            notifySmsSentFailedToEmergencyStateTracker(destAddr, messageId, isOverIms);
+            notifySmsSent(destAddr, messageId, isOverIms, true/*isLastSmsPart*/, false/*success*/);
         }
 
         public void testNotifySmsReceivedViaImsToEmergencyStateTracker(String origAddr) {
@@ -191,12 +194,16 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     private TestSmsDispatchersController mSmsDispatchersController;
     private boolean mInjectionCallbackTriggered = false;
     private CompletableFuture<Integer> mDscFuture;
+    private DatagramDispatcher mMockDatagramDispatcher;
 
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
         mTracker = mock(SMSDispatcher.SmsTracker.class);
         mFeatureFlags = mock(FeatureFlags.class);
+        mMockDatagramDispatcher = mock(DatagramDispatcher.class);
+        replaceInstance(DatagramDispatcher.class, "sInstance", null,
+                mMockDatagramDispatcher);
         setupMockPackagePermissionChecks();
         mSmsDispatchersController = new TestSmsDispatchersController(mPhone, mSmsStorageMonitor,
             mSmsUsageMonitor, mTestableLooper.getLooper(), mFeatureFlags);
@@ -1063,6 +1070,42 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         assertTrue(mSmsDispatchersController.setImsManager(imsManager));
     }
 
+    @Test
+    public void testSendSmsToDatagramDispatcher() {
+        when(mSatelliteController.isInCarrierRoamingNbIotNtn()).thenReturn(true);
+        mSmsDispatchersController.sendText("1111", "2222", "text", mSentIntent, null, null,
+                "test-app", false, 0, false, 10, false, 1L, false);
+        processAllMessages();
+        verify(mMockDatagramDispatcher).sendSms(any());
+
+        clearInvocations(mMockDatagramDispatcher);
+        ArrayList<String> parts = new ArrayList<>();
+        ArrayList<PendingIntent> sentIntents = new ArrayList<>();
+        ArrayList<PendingIntent> deliveryIntents = new ArrayList<>();
+        mSmsDispatchersController.testSendMultipartText("1111", "2222", parts, sentIntents,
+                deliveryIntents, null, "test-app", false, 0, false, 10, 1L);
+        processAllMessages();
+        verify(mMockDatagramDispatcher).sendSms(any());
+    }
+
+    @Test
+    public void testSendCarrierRoamingNbIotNtnText() {
+        PendingRequest pendingRequest = createPendingRequest();
+        switchImsSmsFormat(PhoneConstants.PHONE_TYPE_GSM);
+
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(false);
+        mSmsDispatchersController.sendCarrierRoamingNbIotNtnText(pendingRequest);
+        processAllMessages();
+        verify(mSimulatedCommandsVerifier, times(0)).sendImsGsmSms(anyString(), anyString(),
+                anyInt(), anyInt(), any(Message.class));
+
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+        mSmsDispatchersController.sendCarrierRoamingNbIotNtnText(pendingRequest);
+        processAllMessages();
+        verify(mSimulatedCommandsVerifier, times(1)).sendImsGsmSms(anyString(), anyString(),
+                anyInt(), anyInt(), any(Message.class));
+    }
+
     private void setUpDomainSelectionEnabled(boolean enabled) {
         mSmsDispatchersController.setDomainSelectionResolverProxy(
                 new SmsDispatchersController.DomainSelectionResolverProxy() {
@@ -1320,5 +1363,19 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         } else {
             verify(mGsmSmsDispatcher).sendSms(eq(mTracker));
         }
+    }
+
+    private static <T> ArrayList<T> asArrayList(T object) {
+        ArrayList<T> list = new ArrayList<>();
+        list.add(object);
+        return list;
+    }
+
+    private PendingRequest createPendingRequest() {
+        return new PendingRequest(
+                SmsDispatchersController.PendingRequest.TYPE_TEXT, null, "test-app",
+                "1111", "2222", asArrayList(mSentIntent), asArrayList(null),
+                false, null, 0, asArrayList("text"), null,
+                false, 0, false, 10, 100L, false);
     }
 }

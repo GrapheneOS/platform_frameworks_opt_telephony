@@ -40,3 +40,14 @@ flag {
         purpose: PURPOSE_BUGFIX
     }
 }
+
+# OWNER=grantmenke TARGET=25Q1
+flag {
+    name: "remap_disconnect_cause_sip_request_cancelled"
+    namespace: "telephony"
+    description: "Fix dialer UI bug by remapping disconnect CODE_SIP_REQUEST_CANCELLED to DisconnectCause.NORMAL"
+    bug: "351258918"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}

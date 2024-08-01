@@ -96,7 +96,6 @@ public class IccSmsInterfaceManager {
     final protected Context mContext;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     final protected AppOpsManager mAppOps;
-    @VisibleForTesting
     public SmsDispatchersController mDispatchersController;
     private SmsPermissions mSmsPermissions;
 

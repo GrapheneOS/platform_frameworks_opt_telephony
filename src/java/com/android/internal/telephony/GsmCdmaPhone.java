@@ -5497,4 +5497,13 @@ public class GsmCdmaPhone extends Phone {
             mSafetySource.refresh(mContext, refreshBroadcastId);
         }
     }
+
+    /**
+     * @return The sms dispatchers controller
+     */
+    @Override
+    @Nullable
+    public SmsDispatchersController getSmsDispatchersController() {
+        return mIccSmsInterfaceManager.mDispatchersController;
+    }
 }
