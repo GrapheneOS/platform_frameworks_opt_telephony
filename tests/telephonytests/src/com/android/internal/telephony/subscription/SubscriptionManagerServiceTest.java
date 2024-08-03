@@ -242,6 +242,10 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
 
         // Due to affect exist implementation, bypass feature flag.
         doReturn(false).when(mFlags).enforceTelephonyFeatureMappingForPublicApis();
+
+        doReturn(true).when(mFlags).saferGetPhoneNumber();
+        doReturn(true).when(mFlags).uiccPhoneNumberFix();
+
         doReturn(true).when(mPackageManager).hasSystemFeature(
                 eq(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION));
         logd("SubscriptionManagerServiceTest -Setup!");
@@ -1832,7 +1836,7 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
         multiNumberSubInfo =
                 new SubscriptionInfoInternal.Builder(multiNumberSubInfo)
                         .setNumberFromCarrier("")
-                        .setNumber(phoneNumberFromUicc)
+                        .setNumber("")
                         .setNumberFromIms(phoneNumberFromIms)
                         .build();
         subId = insertSubscription(multiNumberSubInfo);
@@ -2521,6 +2525,23 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID,
                 SubscriptionManager.PHONE_NUMBER_SOURCE_CARRIER, CALLING_PACKAGE, CALLING_FEATURE))
                 .isEmpty();
+    }
+
+    @Test
+    public void testGetPhoneNumberFromUicc() {
+        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+        testSetPhoneNumber();
+        // Number from line1Number should be FAKE_PHONE_NUMBER1 instead of FAKE_PHONE_NUMBER2
+        assertThat(mSubscriptionManagerServiceUT.getPhoneNumber(1,
+                SubscriptionManager.PHONE_NUMBER_SOURCE_UICC, CALLING_PACKAGE, CALLING_FEATURE))
+                .isEqualTo(FAKE_PHONE_NUMBER1);
+
+        doReturn("").when(mPhone).getLine1Number();
+
+        // If getLine1Number is empty, then the number should be from the sub info.
+        assertThat(mSubscriptionManagerServiceUT.getPhoneNumber(1,
+                SubscriptionManager.PHONE_NUMBER_SOURCE_UICC, CALLING_PACKAGE, CALLING_FEATURE))
+                .isEqualTo(FAKE_PHONE_NUMBER2);
     }
 
     @Test

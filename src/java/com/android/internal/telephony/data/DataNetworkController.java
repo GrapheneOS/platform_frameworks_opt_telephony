@@ -1579,7 +1579,7 @@ public class DataNetworkController extends Handler {
             @NonNull TelephonyNetworkRequest networkRequest, DataEvaluationReason reason) {
         DataEvaluation evaluation = new DataEvaluation(reason);
         int transport = mAccessNetworksManager.getPreferredTransportByNetworkCapability(
-                networkRequest.getApnTypeNetworkCapability());
+                networkRequest.getHighestPriorityApnTypeNetworkCapability());
 
         // Check if the request can be satisfied by cellular network or satellite network.
         if (mFeatureFlags.satelliteInternet()
@@ -1711,7 +1711,7 @@ public class DataNetworkController extends Handler {
 
         if (mDataSettingsManager.isDataInitialized()) {
             if (!mDataSettingsManager.isDataEnabled(DataUtils.networkCapabilityToApnType(
-                    networkRequest.getApnTypeNetworkCapability()))) {
+                    networkRequest.getHighestPriorityApnTypeNetworkCapability()))) {
                 evaluation.addDataDisallowedReason(DataDisallowedReason.DATA_DISABLED);
             }
         } else {
@@ -1985,7 +1985,7 @@ public class DataNetworkController extends Handler {
             if (mAllNetworkRequestList.stream()
                     .filter(request -> dataNetwork.getTransport()
                             == mAccessNetworksManager.getPreferredTransportByNetworkCapability(
-                                    request.getApnTypeNetworkCapability()))
+                                    request.getHighestPriorityApnTypeNetworkCapability()))
                     .filter(request
                             -> !hasCapabilityExemptsFromSinglePdnRule(request.getCapabilities()))
                     .anyMatch(request -> request.getPriority() > dataNetwork.getPriority())) {
@@ -2869,7 +2869,7 @@ public class DataNetworkController extends Handler {
         }
 
         int transport = mAccessNetworksManager.getPreferredTransportByNetworkCapability(
-                networkRequestList.get(0).getApnTypeNetworkCapability());
+                networkRequestList.get(0).getHighestPriorityApnTypeNetworkCapability());
         logl("Creating data network on "
                 + AccessNetworkConstants.transportTypeToString(transport) + " with " + dataProfile
                 + ", and attaching " + networkRequestList.size() + " network requests to it.");
@@ -3141,7 +3141,8 @@ public class DataNetworkController extends Handler {
         log("onDataNetworkSetupRetry: Request list:" + requestList);
         TelephonyNetworkRequest telephonyNetworkRequest = requestList.get(0);
 
-        int networkCapability = telephonyNetworkRequest.getApnTypeNetworkCapability();
+        int networkCapability = telephonyNetworkRequest
+                .getHighestPriorityApnTypeNetworkCapability();
         int preferredTransport = mAccessNetworksManager.getPreferredTransportByNetworkCapability(
                 networkCapability);
         if (preferredTransport != dataSetupRetryEntry.transport) {

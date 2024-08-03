@@ -3360,7 +3360,7 @@ public class DataNetwork extends StateMachine {
     public int getApnTypeNetworkCapability() {
         if (!mAttachedNetworkRequestList.isEmpty()) {
             // The highest priority network request is always at the top of list.
-            return mAttachedNetworkRequestList.get(0).getApnTypeNetworkCapability();
+            return mAttachedNetworkRequestList.get(0).getHighestPriorityApnTypeNetworkCapability();
         } else {
             return Arrays.stream(getNetworkCapabilities().getCapabilities()).boxed()
                     .filter(cap -> DataUtils.networkCapabilityToApnType(cap)

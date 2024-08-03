@@ -912,6 +912,8 @@ public class SubscriptionManagerService extends ISub.Stub {
      * @param subId The subscription id.
      */
     public void setCountryIso(int subId, @NonNull String iso) {
+        logl("setCountryIso: subId=" + subId + ", iso=" + iso);
+
         // This can throw IllegalArgumentException if the subscription does not exist.
         try {
             mSubscriptionDatabaseManager.setCountryIso(subId, iso);
@@ -928,6 +930,8 @@ public class SubscriptionManagerService extends ISub.Stub {
      * @param carrierName The carrier name.
      */
     public void setCarrierName(int subId, @NonNull String carrierName) {
+        logl("setCarrierName: subId=" + subId + ", carrierName=" + carrierName);
+
         // This can throw IllegalArgumentException if the subscription does not exist.
         try {
             mSubscriptionDatabaseManager.setCarrierName(subId, carrierName);
@@ -999,6 +1003,9 @@ public class SubscriptionManagerService extends ISub.Stub {
      * @param numberFromIms The phone number retrieved from IMS.
      */
     public void setNumberFromIms(int subId, @NonNull String numberFromIms) {
+        logl("setNumberFromIms: subId=" + subId + ", number="
+                + Rlog.pii(TelephonyUtils.IS_DEBUGGABLE, numberFromIms));
+
         // This can throw IllegalArgumentException if the subscription does not exist.
         try {
             mSubscriptionDatabaseManager.setNumberFromIms(subId, numberFromIms);
@@ -1893,7 +1900,10 @@ public class SubscriptionManagerService extends ISub.Stub {
                     + "carrier privilege");
         }
 
-        enforceTelephonyFeatureWithException(callingPackage, "getAllSubInfoList");
+        if (!mContext.getResources().getBoolean(
+                    com.android.internal.R.bool.config_force_phone_globals_creation)) {
+            enforceTelephonyFeatureWithException(callingPackage, "getAllSubInfoList");
+        }
 
         return getSubscriptionInfoStreamAsUser(BINDER_WRAPPER.getCallingUserHandle())
                 // callers have READ_PHONE_STATE or READ_PRIVILEGED_PHONE_STATE can get a full
@@ -3895,10 +3905,20 @@ public class SubscriptionManagerService extends ISub.Stub {
         switch(source) {
             case SubscriptionManager.PHONE_NUMBER_SOURCE_UICC:
                 final Phone phone = PhoneFactory.getPhone(getSlotIndex(subId));
-                if (phone != null) {
-                    return TextUtils.emptyIfNull(phone.getLine1Number());
-                } else {
+                if (mFeatureFlags.uiccPhoneNumberFix()) {
+                    if (phone != null) {
+                        String number = phone.getLine1Number();
+                        if (!TextUtils.isEmpty(number)) {
+                            return number;
+                        }
+                    }
                     return subInfo.getNumber();
+                } else {
+                    if (phone != null) {
+                        return TextUtils.emptyIfNull(phone.getLine1Number());
+                    } else {
+                        return subInfo.getNumber();
+                    }
                 }
             case SubscriptionManager.PHONE_NUMBER_SOURCE_CARRIER:
                 return subInfo.getNumberFromCarrier();
@@ -4006,6 +4026,9 @@ public class SubscriptionManagerService extends ISub.Stub {
     @RequiresPermission("carrier privileges")
     public void setPhoneNumber(int subId, @PhoneNumberSource int source, @NonNull String number,
             @NonNull String callingPackage, @Nullable String callingFeatureId) {
+        logl("setPhoneNumber: subId=" + subId + ", number="
+                + Rlog.pii(TelephonyUtils.IS_DEBUGGABLE, number)
+                + ", calling package=" + callingPackage);
         if (!TelephonyPermissions.checkCarrierPrivilegeForSubId(mContext, subId)) {
             throw new SecurityException("setPhoneNumber for CARRIER needs carrier privilege.");
         }

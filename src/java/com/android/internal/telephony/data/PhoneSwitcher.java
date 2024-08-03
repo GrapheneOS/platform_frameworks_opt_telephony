@@ -598,29 +598,17 @@ public class PhoneSwitcher extends Handler {
 
         final NetworkCapabilities.Builder builder = new NetworkCapabilities.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_SUPL)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_DUN)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_FOTA)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_IMS)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_CBS)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_IA)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_RCS)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_MMTEL)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_XCAP)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_EIMS)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_MCX)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_LATENCY)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH)
                 .addEnterpriseId(NetworkCapabilities.NET_ENTERPRISE_ID_1)
                 .addEnterpriseId(NetworkCapabilities.NET_ENTERPRISE_ID_2)
                 .addEnterpriseId(NetworkCapabilities.NET_ENTERPRISE_ID_3)
                 .addEnterpriseId(NetworkCapabilities.NET_ENTERPRISE_ID_4)
                 .addEnterpriseId(NetworkCapabilities.NET_ENTERPRISE_ID_5)
                 .setNetworkSpecifier(new MatchAllNetworkSpecifier());
+        TelephonyNetworkRequest.getAllSupportedNetworkCapabilities()
+                .forEach(builder::addCapability);
 
         if (mFlags.satelliteInternet()) {
             // TODO: b/328622096 remove the try/catch

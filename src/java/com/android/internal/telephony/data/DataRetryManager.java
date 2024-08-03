@@ -1277,7 +1277,8 @@ public class DataRetryManager extends Handler {
                 return;
             }
             for (NetworkRequestList networkRequestList : groupedNetworkRequestLists) {
-                int capability = networkRequestList.get(0).getApnTypeNetworkCapability();
+                int capability = networkRequestList.get(0)
+                        .getHighestPrioritySupportedNetworkCapability();
                 if (retryRule.canBeMatched(capability, cause)) {
                     // Check if there is already a similar network request retry scheduled.
                     if (isSimilarNetworkRequestRetryScheduled(
@@ -1492,7 +1493,8 @@ public class DataRetryManager extends Handler {
                                 mPhone.getCarrierId());
                         continue;
                     }
-                    if (entry.networkRequestList.get(0).getApnTypeNetworkCapability()
+                    if (entry.networkRequestList.get(0)
+                            .getHighestPrioritySupportedNetworkCapability()
                             == networkCapability
                             && entry.appliedDataRetryRule.equals(dataRetryRule)) {
                         if (entry.getState() == DataRetryEntry.RETRY_STATE_SUCCEEDED
@@ -1779,8 +1781,9 @@ public class DataRetryManager extends Handler {
                                 mPhone.getCarrierId());
                         continue;
                     }
-                    if (entry.networkRequestList.get(0).getApnTypeNetworkCapability()
-                            == networkRequest.getApnTypeNetworkCapability()
+                    if (entry.networkRequestList.get(0)
+                            .getHighestPrioritySupportedNetworkCapability()
+                            == networkRequest.getHighestPrioritySupportedNetworkCapability()
                             && entry.transport == transport) {
                         return true;
                     }

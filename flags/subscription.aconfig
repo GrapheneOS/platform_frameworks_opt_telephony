@@ -77,3 +77,15 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 }
+
+# OWNER=jackyu TARGET=24Q4
+flag {
+  name: "uicc_phone_number_fix"
+  namespace: "telephony"
+  description: "Fixed that empty phone number when getLine1Number returns empty"
+  bug: "302437869"
+
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
