@@ -173,6 +173,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
 
         UserManager userManager = (UserManager)mContext.getSystemService(Context.USER_SERVICE);
         doReturn(true).when(userManager).isUserUnlocked();
+        doReturn(true).when(userManager).isUserUnlocked(any(UserHandle.class));
         doReturn(true).when(userManager).isUserRunning(any(UserHandle.class));
 
         List<UserHandle> userHandles = new ArrayList();
@@ -384,6 +385,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // user locked
         UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
         doReturn(false).when(userManager).isUserUnlocked();
+        doReturn(false).when(userManager).isUserUnlocked(any(UserHandle.class));
 
         transitionFromStartupToIdle();
 
@@ -398,10 +400,19 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // New message notification should be shown.
         NotificationManager notificationManager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-        verify(notificationManager).notify(
-                eq(InboundSmsHandler.NOTIFICATION_TAG),
-                eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
-                any(Notification.class));
+        if (mFeatureFlags.smsMmsDeliverBroadcastsRedirectToMainUser()) {
+            verify(notificationManager).notifyAsUser(
+                    eq(InboundSmsHandler.NOTIFICATION_TAG),
+                    eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
+                    any(Notification.class),
+                    eq(MOCKED_MAIN_USER));
+        } else {
+            verify(notificationManager).notify(
+                    eq(InboundSmsHandler.NOTIFICATION_TAG),
+                    eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
+                    any(Notification.class));
+
+        }
     }
 
     @Test
@@ -413,6 +424,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // user locked
         UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
         doReturn(false).when(userManager).isUserUnlocked();
+        doReturn(false).when(userManager).isUserUnlocked(any(UserHandle.class));
 
         transitionFromStartupToIdle();
 
@@ -427,10 +439,19 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // No new message notification should be shown.
         NotificationManager notificationManager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-        verify(notificationManager, never()).notify(
-                eq(InboundSmsHandler.NOTIFICATION_TAG),
-                eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
-                any(Notification.class));
+        if (mFeatureFlags.smsMmsDeliverBroadcastsRedirectToMainUser()) {
+            verify(notificationManager, never()).notifyAsUser(
+                    eq(InboundSmsHandler.NOTIFICATION_TAG),
+                    eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
+                    any(Notification.class),
+                    eq(MOCKED_MAIN_USER));
+        } else {
+            verify(notificationManager, never()).notify(
+                    eq(InboundSmsHandler.NOTIFICATION_TAG),
+                    eq(InboundSmsHandler.NOTIFICATION_ID_NEW_MESSAGE),
+                    any(Notification.class));
+
+        }
     }
 
     @Test
@@ -1076,14 +1097,21 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // user locked
         UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
         doReturn(false).when(userManager).isUserUnlocked();
+        doReturn(false).when(userManager).isUserUnlocked(any(UserHandle.class));
 
-        SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+        SmsBroadcastUndelivered.initialize(
+                mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
 
-        // verify that a broadcast receiver is registered for current user (user == null) based on
-        // implementation in ContextFixture. registerReceiver may be called more than once (for
-        // example by GsmInboundSmsHandler if TEST_MODE is true)
-        verify(mContext, atLeastOnce()).registerReceiver(any(BroadcastReceiver.class),
-                any(IntentFilter.class));
+        if (mFeatureFlags.smsMmsDeliverBroadcastsRedirectToMainUser()) {
+            verify(mContext).registerReceiverAsUser(any(BroadcastReceiver.class),
+                    any(UserHandle.class), any(IntentFilter.class), any(), any());
+        } else {
+            // verify that a broadcast receiver is registered for current user (user == null) based
+            // on implementation in ContextFixture. registerReceiver may be called more than once
+            // (for example by GsmInboundSmsHandler if TEST_MODE is true)
+            verify(mContext, atLeastOnce()).registerReceiver(any(BroadcastReceiver.class),
+                    any(IntentFilter.class));
+        }
 
         // wait for ScanRawTableThread
         waitForMs(100);
@@ -1094,7 +1122,10 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
 
         // when user unlocks the device, the message in db should be broadcast
         doReturn(true).when(userManager).isUserUnlocked();
-        mContext.sendBroadcast(new Intent(Intent.ACTION_USER_UNLOCKED));
+        doReturn(true).when(userManager).isUserUnlocked(any(UserHandle.class));
+        mContext.sendBroadcast(
+                new Intent(Intent.ACTION_USER_UNLOCKED)
+                        .putExtra(Intent.EXTRA_USER_HANDLE, MOCKED_MAIN_USER.getIdentifier()));
         // wait for ScanRawTableThread
         waitForMs(100);
         processAllMessages();
@@ -1129,7 +1160,8 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         // add a fake entry to db
         mContentProvider.insert(sRawUri, mInboundSmsTracker.getContentValues());
 
-        SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+        SmsBroadcastUndelivered.initialize(
+                mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
 
         // wait for ScanRawTableThread
         waitForMs(100);
@@ -1144,7 +1176,8 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
     @MediumTest
     public void testBroadcastUndeliveredDeleted() throws Exception {
         replaceInstance(SmsBroadcastUndelivered.class, "instance", null, null);
-        SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+        SmsBroadcastUndelivered.initialize(
+                mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
         mInboundSmsTracker = new InboundSmsTracker(
                 mContext,
                 mSmsPdu, /* pdu */
@@ -1170,7 +1203,9 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         mContentProvider.insert(sRawUri, rawSms);
 
         //when user unlocks the device, broadcast should not be sent for new message
-        mContext.sendBroadcast(new Intent(Intent.ACTION_USER_UNLOCKED));
+        mContext.sendBroadcast(
+                new Intent(Intent.ACTION_USER_UNLOCKED)
+                        .putExtra(Intent.EXTRA_USER_HANDLE, MOCKED_MAIN_USER.getIdentifier()));
         // wait for ScanRawTableThread
         waitForMs(100);
         processAllMessages();
@@ -1197,7 +1232,8 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
                 when(mTelephonyComponentFactory).makeInboundSmsTracker(any(Context.class),
                         any(Cursor.class), anyBoolean());
 
-        SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+        SmsBroadcastUndelivered.initialize(
+                mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
         // wait for ScanRawTableThread
         waitForMs(100);
         processAllMessages();
@@ -1215,7 +1251,8 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
         mContentProvider.insert(sRawUri, mInboundSmsTracker.getContentValues());
         mContentProvider.insert(sRawUri, mInboundSmsTrackerSub1.getContentValues());
 
-        SmsBroadcastUndelivered.initialize(mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+        SmsBroadcastUndelivered.initialize(
+                mContext, mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
         // wait for ScanRawTableThread
         waitForMs(100);
         processAllMessages();

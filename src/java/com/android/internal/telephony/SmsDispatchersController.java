@@ -395,7 +395,7 @@ public class SmsDispatchersController extends Handler {
                 storageMonitor, phone, (CdmaSMSDispatcher) mCdmaDispatcher, looper, mFeatureFlags);
         mGsmDispatcher = new GsmSMSDispatcher(phone, this, mGsmInboundSmsHandler);
         SmsBroadcastUndelivered.initialize(phone.getContext(),
-                mGsmInboundSmsHandler, mCdmaInboundSmsHandler);
+                mGsmInboundSmsHandler, mCdmaInboundSmsHandler, mFeatureFlags);
         InboundSmsHandler.registerNewMessageNotificationActionHandler(phone.getContext());
 
         mCi.registerForOn(this, EVENT_RADIO_ON, null);
