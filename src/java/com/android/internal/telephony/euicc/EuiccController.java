@@ -837,7 +837,7 @@ public class EuiccController extends IEuiccController.Stub {
                 subscription,
                 switchAfterDownload,
                 forceDeactivateSim,
-                resolvedBundle,
+                addCallingPackageToBundle(resolvedBundle, callingPackage),
                 new EuiccConnector.DownloadCommandCallback() {
                     @Override
                     public void onDownloadComplete(DownloadSubscriptionResult result) {
@@ -934,6 +934,13 @@ public class EuiccController extends IEuiccController.Stub {
                         sendResult(callbackIntent, ERROR, null /* extrasIntent */);
                     }
                 });
+    }
+
+    private static Bundle addCallingPackageToBundle(
+                @Nullable Bundle resolvedBundle, String callingPackage) {
+        resolvedBundle = resolvedBundle == null ? new Bundle() : resolvedBundle;
+        resolvedBundle.putString(EuiccService.EXTRA_PACKAGE_NAME, callingPackage);
+        return resolvedBundle;
     }
 
     /**

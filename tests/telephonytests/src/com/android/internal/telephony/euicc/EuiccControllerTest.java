@@ -49,6 +49,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.UserManager;
@@ -87,7 +88,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.mockito.stubbing.Stubber;
@@ -106,6 +112,8 @@ public class EuiccControllerTest extends TelephonyTest {
     public TestRule compatChangeRule = new PlatformCompatChangeRule();
     @Rule
     public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
+    @Rule
+    public MockitoRule rule = MockitoJUnit.rule();
 
     private static final DownloadableSubscription SUBSCRIPTION =
             DownloadableSubscription.forActivationCode("abcde");
@@ -145,8 +153,8 @@ public class EuiccControllerTest extends TelephonyTest {
     private static final long AVAILABLE_MEMORY = 123L;
 
     // Mocked classes
-    private EuiccConnector mMockConnector;
-    private UiccSlot mUiccSlot;
+    @Mock private EuiccConnector mMockConnector;
+    @Captor private ArgumentCaptor<Bundle> mBundleCaptor;
 
     private TestEuiccController mController;
     private int mSavedEuiccProvisionedValue;
@@ -218,8 +226,6 @@ public class EuiccControllerTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
-        mMockConnector = Mockito.mock(EuiccConnector.class);
-        mUiccSlot = Mockito.mock(UiccSlot.class);
         mController = new TestEuiccController(mContext, mMockConnector, mFeatureFlags);
 
         PackageInfo pi = new PackageInfo();
@@ -580,8 +586,15 @@ public class EuiccControllerTest extends TelephonyTest {
     public void testDownloadSubscription_success() throws Exception {
         setHasWriteEmbeddedPermission(true);
         setUpUiccSlotData();
+
         callDownloadSubscription(SUBSCRIPTION, true /* switchAfterDownload */, true /* complete */,
                 EuiccService.RESULT_OK, 0 /* resolvableError */, "whatever" /* callingPackage */);
+
+        verify(mMockConnector).downloadSubscription(anyInt(), anyInt(),
+                any(), eq(true), anyBoolean(), mBundleCaptor.capture(), any());
+        assertEquals(
+                "whatever",
+                mBundleCaptor.getValue().getString(EuiccService.EXTRA_PACKAGE_NAME));
         verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK, 0 /* detailedCode */);
         // switchAfterDownload = true so no refresh should occur.
         assertFalse(mController.mCalledRefreshSubscriptionsAndSendResult);
@@ -591,8 +604,15 @@ public class EuiccControllerTest extends TelephonyTest {
     @DisableCompatChanges({EuiccManager.SHOULD_RESOLVE_PORT_INDEX_FOR_APPS})
     public void testDownloadSubscription_noSwitch_success() throws Exception {
         setHasWriteEmbeddedPermission(true);
+
         callDownloadSubscription(SUBSCRIPTION, false /* switchAfterDownload */, true /* complete */,
                 EuiccService.RESULT_OK, 0 /* resolvableError */, "whatever" /* callingPackage */);
+
+        verify(mMockConnector).downloadSubscription(anyInt(), anyInt(),
+                any(), eq(false), anyBoolean(), mBundleCaptor.capture(), any());
+        assertEquals(
+                "whatever",
+                mBundleCaptor.getValue().getString(EuiccService.EXTRA_PACKAGE_NAME));
         verifyIntentSent(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK, 0 /* detailedCode */);
         assertTrue(mController.mCalledRefreshSubscriptionsAndSendResult);
     }

@@ -18,7 +18,7 @@ package com.android.internal.telephony.uicc.euicc.apdu;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
@@ -34,7 +34,6 @@ import com.android.telephony.Rlog;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 /**
  * This class sends a list of APDU commands to an AID on a UICC. A logical channel will be opened
@@ -58,7 +57,7 @@ public class ApduSender {
 
     private static final int WAIT_TIME_MS = 2000;
     private static final String CHANNEL_ID_PRE = "esim-channel";
-    private static final String ISD_R_AID = "A0000005591010FFFFFFFF8900000100";
+    static final String ISD_R_AID = "A0000005591010FFFFFFFF8900000100";
     private static final String CHANNEL_RESPONSE_ID_PRE = "esim-res-id";
 
     private static void logv(String msg) {
@@ -88,6 +87,9 @@ public class ApduSender {
      */
     public ApduSender(Context context, int phoneId, CommandsInterface ci, String aid,
             boolean supportExtendedApdu) {
+        if (!aid.equals(ISD_R_AID) && !"user".equals(Build.TYPE)) {
+            throw new IllegalArgumentException("Only ISD-R AID is supported.");
+        }
         mAid = aid;
         mContext = context;
         mSupportExtendedApdu = supportExtendedApdu;
@@ -146,8 +148,7 @@ public class ApduSender {
                 int channel = openChannelResponse.getChannel();
                 int status = openChannelResponse.getStatus();
                 byte[] selectResponse = openChannelResponse.getSelectResponse();
-                if (mAid.equals(ISD_R_AID)
-                      && status == IccOpenLogicalChannelResponse.STATUS_NO_SUCH_ELEMENT) {
+                if (status == IccOpenLogicalChannelResponse.STATUS_NO_SUCH_ELEMENT) {
                     channel = PreferenceManager.getDefaultSharedPreferences(mContext)
                                 .getInt(mChannelKey, IccOpenLogicalChannelResponse.INVALID_CHANNEL);
                     if (channel != IccOpenLogicalChannelResponse.INVALID_CHANNEL) {
@@ -173,13 +174,11 @@ public class ApduSender {
 
                 RequestBuilder builder = new RequestBuilder(channel, mSupportExtendedApdu);
                 Throwable requestException = null;
-                if (mAid.equals(ISD_R_AID)) {
-                   PreferenceManager.getDefaultSharedPreferences(mContext)
-                         .edit().putInt(mChannelKey, channel).apply();
-                   PreferenceManager.getDefaultSharedPreferences(mContext)
+                PreferenceManager.getDefaultSharedPreferences(mContext)
+                        .edit().putInt(mChannelKey, channel).apply();
+                PreferenceManager.getDefaultSharedPreferences(mContext)
                         .edit().putString(mChannelResponseKey,
-                           Base64.encodeToString(selectResponse, Base64.DEFAULT)).apply();
-                }
+                                Base64.encodeToString(selectResponse, Base64.DEFAULT)).apply();
                 try {
                     requestProvider.buildRequest(selectResponse, builder);
                 } catch (Throwable e) {
@@ -304,12 +303,10 @@ public class ApduSender {
             @Override
             public void onResult(Boolean aBoolean) {
                 synchronized (mChannelLock) {
-                    if (mAid.equals(ISD_R_AID)) {
-                      PreferenceManager.getDefaultSharedPreferences(mContext)
-                             .edit().remove(mChannelKey).apply();
-                      PreferenceManager.getDefaultSharedPreferences(mContext)
-                             .edit().remove(mChannelResponseKey).apply();
-                    }
+                    PreferenceManager.getDefaultSharedPreferences(mContext)
+                            .edit().remove(mChannelKey).apply();
+                    PreferenceManager.getDefaultSharedPreferences(mContext)
+                            .edit().remove(mChannelResponseKey).apply();
                     mChannelOpened = false;
                     mChannelLock.notify();
                 }
