@@ -33,6 +33,7 @@ import android.telephony.CellIdentity;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.satellite.AntennaPosition;
 import android.telephony.satellite.NtnSignalStrength;
@@ -302,6 +303,26 @@ public class SatelliteServiceUtils {
         }
         logd("getValidSatelliteSubId: use DEFAULT_SUBSCRIPTION_ID for subId=" + subId);
         return SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
+    }
+
+    /**
+     * Get the subscription ID which supports OEM based NTN satellite service.
+     *
+     * @return ID of the subscription that supports OEM-based satellite if any,
+     * return {@link SubscriptionManager#INVALID_SUBSCRIPTION_ID} otherwise.
+     */
+    public static int getOemBasedNonTerrestrialSubscriptionId(@NonNull Context context) {
+        List<SubscriptionInfo> infoList =
+                SubscriptionManagerService.getInstance().getAllSubInfoList(
+                        context.getOpPackageName(), null);
+
+        int subId = infoList.stream()
+                .filter(info -> info.isOnlyNonTerrestrialNetwork())
+                .mapToInt(SubscriptionInfo::getSubscriptionId)
+                .findFirst()
+                .orElse(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        logd("getOemBasedNonTerrestrialSubscriptionId: subId=" + subId);
+        return subId;
     }
 
     /**

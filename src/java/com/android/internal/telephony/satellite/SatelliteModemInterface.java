@@ -86,8 +86,6 @@ public class SatelliteModemInterface {
     private boolean mIsBinding;
     @Nullable private PersistentLogger mPersistentLogger = null;
 
-    @NonNull private final RegistrantList mSatelliteProvisionStateChangedRegistrants =
-            new RegistrantList();
     @NonNull private final RegistrantList mSatellitePositionInfoChangedRegistrants =
             new RegistrantList();
     @NonNull private final RegistrantList mDatagramTransferStateChangedRegistrants =
@@ -110,11 +108,6 @@ public class SatelliteModemInterface {
 
         SatelliteListener(boolean isDemoListener) {
             mIsDemoListener = isDemoListener;
-        }
-
-        @Override
-        public void onSatelliteProvisionStateChanged(boolean provisioned) {
-            mSatelliteProvisionStateChangedRegistrants.notifyResult(provisioned);
         }
 
         @Override
@@ -400,27 +393,6 @@ public class SatelliteModemInterface {
             unbindService();
             mExponentialBackoff.start();
         }
-    }
-
-    /**
-     * Registers for the satellite provision state changed.
-     *
-     * @param h Handler for notification message.
-     * @param what User-defined message code.
-     * @param obj User object.
-     */
-    public void registerForSatelliteProvisionStateChanged(
-            @NonNull Handler h, int what, @Nullable Object obj) {
-        mSatelliteProvisionStateChangedRegistrants.add(h, what, obj);
-    }
-
-    /**
-     * Unregisters for the satellite provision state changed.
-     *
-     * @param h Handler to be removed from the registrant list.
-     */
-    public void unregisterForSatelliteProvisionStateChanged(@NonNull Handler h) {
-        mSatelliteProvisionStateChangedRegistrants.remove(h);
     }
 
     /**
@@ -883,113 +855,6 @@ public class SatelliteModemInterface {
             }
         } else {
             ploge("stopSendingSatellitePointingInfo: Satellite service is unavailable.");
-            sendMessageWithResult(message, null,
-                    SatelliteManager.SATELLITE_RESULT_RADIO_NOT_AVAILABLE);
-        }
-    }
-
-    /**
-     * Provision the device with a satellite provider.
-     * This is needed if the provider allows dynamic registration.
-     * Once provisioned, ISatelliteListener#onSatelliteProvisionStateChanged should report true.
-     *
-     * @param token The token to be used as a unique identifier for provisioning with satellite
-     *              gateway.
-     * @param provisionData Data from the provisioning app that can be used by provisioning server
-     * @param message The Message to send to result of the operation to.
-     */
-    public void provisionSatelliteService(@NonNull String token, @NonNull byte[] provisionData,
-            @NonNull Message message) {
-        if (mSatelliteService != null) {
-            try {
-                mSatelliteService.provisionSatelliteService(token, provisionData,
-                        new IIntegerConsumer.Stub() {
-                            @Override
-                            public void accept(int result) {
-                                int error = SatelliteServiceUtils.fromSatelliteError(result);
-                                plogd("provisionSatelliteService: " + error);
-                                Binder.withCleanCallingIdentity(() ->
-                                        sendMessageWithResult(message, null, error));
-                            }
-                        });
-            } catch (RemoteException e) {
-                ploge("provisionSatelliteService: RemoteException " + e);
-                sendMessageWithResult(message, null,
-                        SatelliteManager.SATELLITE_RESULT_SERVICE_ERROR);
-            }
-        } else {
-            ploge("provisionSatelliteService: Satellite service is unavailable.");
-            sendMessageWithResult(message, null,
-                    SatelliteManager.SATELLITE_RESULT_RADIO_NOT_AVAILABLE);
-        }
-    }
-
-    /**
-     * Deprovision the device with the satellite provider.
-     * This is needed if the provider allows dynamic registration.
-     * Once deprovisioned, ISatelliteListener#onSatelliteProvisionStateChanged should report false.
-     *
-     * @param token The token of the device/subscription to be deprovisioned.
-     * @param message The Message to send to result of the operation to.
-     */
-    public void deprovisionSatelliteService(@NonNull String token, @NonNull Message message) {
-        if (mSatelliteService != null) {
-            try {
-                mSatelliteService.deprovisionSatelliteService(token, new IIntegerConsumer.Stub() {
-                    @Override
-                    public void accept(int result) {
-                        int error = SatelliteServiceUtils.fromSatelliteError(result);
-                        plogd("deprovisionSatelliteService: " + error);
-                        Binder.withCleanCallingIdentity(() ->
-                                sendMessageWithResult(message, null, error));
-                    }
-                });
-            } catch (RemoteException e) {
-                ploge("deprovisionSatelliteService: RemoteException " + e);
-                sendMessageWithResult(message, null,
-                        SatelliteManager.SATELLITE_RESULT_SERVICE_ERROR);
-            }
-        } else {
-            ploge("deprovisionSatelliteService: Satellite service is unavailable.");
-            sendMessageWithResult(message, null,
-                    SatelliteManager.SATELLITE_RESULT_RADIO_NOT_AVAILABLE);
-        }
-    }
-
-    /**
-     * Request to get whether this device is provisioned with a satellite provider.
-     *
-     * @param message The Message to send to result of the operation to.
-     */
-    public void requestIsSatelliteProvisioned(@NonNull Message message) {
-        if (mSatelliteService != null) {
-            try {
-                mSatelliteService.requestIsSatelliteProvisioned(new IIntegerConsumer.Stub() {
-                    @Override
-                    public void accept(int result) {
-                        int error = SatelliteServiceUtils.fromSatelliteError(result);
-                        plogd("requestIsSatelliteProvisioned: " + error);
-                        Binder.withCleanCallingIdentity(() ->
-                                sendMessageWithResult(message, null, error));
-                    }
-                }, new IBooleanConsumer.Stub() {
-                    @Override
-                    public void accept(boolean result) {
-                        // Convert for compatibility with SatelliteResponse
-                        // TODO: This should just report result instead.
-                        int[] provisioned = new int[] {result ? 1 : 0};
-                        plogd("requestIsSatelliteProvisioned: " + Arrays.toString(provisioned));
-                        Binder.withCleanCallingIdentity(() -> sendMessageWithResult(
-                                message, provisioned, SatelliteManager.SATELLITE_RESULT_SUCCESS));
-                    }
-                });
-            } catch (RemoteException e) {
-                ploge("requestIsSatelliteProvisioned: RemoteException " + e);
-                sendMessageWithResult(message, null,
-                        SatelliteManager.SATELLITE_RESULT_SERVICE_ERROR);
-            }
-        } else {
-            ploge("requestIsSatelliteProvisioned: Satellite service is unavailable.");
             sendMessageWithResult(message, null,
                     SatelliteManager.SATELLITE_RESULT_RADIO_NOT_AVAILABLE);
         }

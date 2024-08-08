@@ -296,7 +296,10 @@ public class SubscriptionDatabaseManager extends Handler {
                     SubscriptionInfoInternal::getSatelliteEntitlementPlmns),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED,
-                    SubscriptionInfoInternal::getSatelliteESOSSupported)
+                    SubscriptionInfoInternal::getSatelliteESOSSupported),
+            new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_IS_SATELLITE_PROVISIONED_FOR_NON_IP_DATAGRAM,
+                    SubscriptionInfoInternal::getIsSatelliteProvisionedForNonIpDatagram)
     );
 
     /**
@@ -439,7 +442,10 @@ public class SubscriptionDatabaseManager extends Handler {
                     SubscriptionDatabaseManager::setSatelliteEntitlementStatus),
             new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED,
-                    SubscriptionDatabaseManager::setSatelliteESOSSupported)
+                    SubscriptionDatabaseManager::setSatelliteESOSSupported),
+            new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_IS_SATELLITE_PROVISIONED_FOR_NON_IP_DATAGRAM,
+                    SubscriptionDatabaseManager::setIsSatelliteProvisionedForNonIpDatagram)
     );
 
     /**
@@ -2185,6 +2191,24 @@ public class SubscriptionDatabaseManager extends Handler {
     }
 
     /**
+     * Set whether the subscription is provisioned for OEM-enabled or carrier roaming NB-IOT
+     * satellite service.
+     *
+     * @param subId Subscription ID.
+     * @param isSatelliteProvisionedForNonIpDatagram {@code 1} if it is provisioned for OEM-enabled
+     * or carrier roaming NB-IOT satellite service. {@code 0} otherwise.
+     *
+     * @throws IllegalArgumentException if the subscription does not exist.
+     */
+    public void setIsSatelliteProvisionedForNonIpDatagram(int subId,
+            int isSatelliteProvisionedForNonIpDatagram) {
+        writeDatabaseAndCacheHelper(subId,
+                SimInfo.COLUMN_IS_SATELLITE_PROVISIONED_FOR_NON_IP_DATAGRAM,
+                isSatelliteProvisionedForNonIpDatagram,
+                SubscriptionInfoInternal.Builder::setIsSatelliteProvisionedForNonIpDatagram);
+    }
+
+    /**
      * Reload the database from content provider to the cache. This must be a synchronous operation
      * to prevent cache/database out-of-sync. Callers should be cautious to call this method because
      * it might take longer time to complete.
@@ -2422,7 +2446,10 @@ public class SubscriptionDatabaseManager extends Handler {
                                 SimInfo.COLUMN_SATELLITE_ENTITLEMENT_STATUS)))
                 .setSatelliteEntitlementPlmns(cursor.getString(
                         cursor.getColumnIndexOrThrow(
-                                SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS)));
+                                SimInfo.COLUMN_SATELLITE_ENTITLEMENT_PLMNS)))
+                .setIsSatelliteProvisionedForNonIpDatagram(cursor.getInt(
+                        cursor.getColumnIndexOrThrow(
+                                SimInfo.COLUMN_IS_SATELLITE_PROVISIONED_FOR_NON_IP_DATAGRAM)));
         if (mFeatureFlags.oemEnabledSatelliteFlag()) {
             builder.setOnlyNonTerrestrialNetwork(cursor.getInt(cursor.getColumnIndexOrThrow(
                     SimInfo.COLUMN_IS_ONLY_NTN)));
