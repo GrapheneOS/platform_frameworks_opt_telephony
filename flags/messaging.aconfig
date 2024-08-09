@@ -45,5 +45,5 @@ flag {
   name: "sms_mms_deliver_broadcasts_redirect_to_main_user"
   namespace: "telephony"
   description: "This flag controls the redirection of SMS_DELIVER AND WAP_PUSH_DELIVER broadcasts to the MAIN user."
-  bug: "335820374"
+  bug: "314321617"
 }

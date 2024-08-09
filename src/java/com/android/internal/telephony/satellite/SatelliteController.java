@@ -471,6 +471,9 @@ public class SatelliteController extends Handler {
     // key : priority, low value is high, value : List<SubscriptionInfo>
     @GuardedBy("mSatelliteTokenProvisionedLock")
     private Map<Integer, List<SubscriptionInfo>> mSubsInfoListPerPriority = new HashMap<>();
+    // The last ICC ID that framework configured to modem.
+    @GuardedBy("mSatelliteTokenProvisionedLock")
+    private String mLastConfiguredIccId;
     @NonNull private final Object mSatelliteTokenProvisionedLock = new Object();
     private long mWaitTimeForSatelliteEnablingResponse;
     private long mDemoPointingAlignedDurationMillis;
@@ -1569,11 +1572,20 @@ public class SatelliteController extends Handler {
                 synchronized (mSatelliteTokenProvisionedLock) {
                     subId = mSubscriberIdPerSub.getOrDefault(
                             argument.mProvisionSubscriberIdList.get(0).getSubscriberId(), -1);
+                    for (ProvisionSubscriberId subscriberId : argument.mProvisionSubscriberIdList) {
+                        mProvisionedSubscriberId.put(subscriberId.getSubscriberId(), true);
+                    }
                 }
                 setSatellitePhone(subId);
                 String iccId = mSubscriptionManagerService.getSubscriptionInfo(subId).getIccId();
-                logd("CMD_PROVISION_SATELLITE_TOKEN_UPDATED: subId=" + subId + ", iccId=" + iccId);
-                mSatelliteModemInterface.updateSatelliteSubscription(iccId, onCompleted);
+                argument.setIccId(iccId);
+                synchronized (mSatelliteTokenProvisionedLock) {
+                    if (!iccId.equals(mLastConfiguredIccId)) {
+                        logd("updateSatelliteSubscription subId=" + subId + ", iccId=" + iccId
+                                + " to modem");
+                        mSatelliteModemInterface.updateSatelliteSubscription(iccId, onCompleted);
+                    }
+                }
                 Consumer<Integer> result = new Consumer<Integer>() {
                     @Override
                     public void accept(Integer integer) {
@@ -1593,10 +1605,16 @@ public class SatelliteController extends Handler {
                         (RequestProvisionSatelliteArgument) request.argument;
                 int error = SatelliteServiceUtils.getSatelliteError(ar,
                         "updateSatelliteSubscription");
-                logd("EVENT_PROVISION_SATELLITE_TOKEN_UPDATED =" + error);
+                if (error == SATELLITE_RESULT_SUCCESS) {
+                    synchronized (mSatelliteTokenProvisionedLock) {
+                        mLastConfiguredIccId = argument.getIccId();
+                    }
+                }
+                logd("updateSatelliteSubscription result=" + error);
                 Bundle bundle = new Bundle();
-                bundle.putBoolean(SatelliteManager.KEY_PROVISION_SATELLITE_TOKENS, true);
-                argument.mResult.send(SATELLITE_RESULT_SUCCESS, bundle);
+                bundle.putBoolean(SatelliteManager.KEY_PROVISION_SATELLITE_TOKENS,
+                        error == SATELLITE_RESULT_SUCCESS);
+                argument.mResult.send(error, bundle);
                 break;
             }
 
@@ -1624,9 +1642,9 @@ public class SatelliteController extends Handler {
 
     private static final class RequestProvisionSatelliteArgument {
         public List<ProvisionSubscriberId> mProvisionSubscriberIdList;
-        @NonNull
-        public ResultReceiver mResult;
+        @NonNull public ResultReceiver mResult;
         public long mRequestId;
+        public String mIccId;
 
         RequestProvisionSatelliteArgument(List<ProvisionSubscriberId> provisionSubscriberIdList,
                 ResultReceiver result) {
@@ -1634,6 +1652,14 @@ public class SatelliteController extends Handler {
             this.mResult = result;
             this.mRequestId = sNextSatelliteEnableRequestId.getAndUpdate(
                     n -> ((n + 1) % Long.MAX_VALUE));
+        }
+
+        public void setIccId(String iccId) {
+            mIccId = iccId;
+        }
+
+        public String getIccId() {
+            return mIccId;
         }
     }
 
@@ -5680,12 +5706,6 @@ public class SatelliteController extends Handler {
         }
 
         logd("provisionSatellite:" + list);
-        for (ProvisionSubscriberId subscriberId : list) {
-            synchronized (mSatelliteTokenProvisionedLock) {
-                mProvisionedSubscriberId.put(subscriberId.getSubscriberId(), true);
-            }
-        }
-
         RequestProvisionSatelliteArgument request = new RequestProvisionSatelliteArgument(list,
                 result);
         sendRequestAsync(CMD_PROVISION_SATELLITE_TOKEN_UPDATED, request, null);
