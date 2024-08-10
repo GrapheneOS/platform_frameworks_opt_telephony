@@ -87,11 +87,11 @@ import com.android.internal.telephony.ISub;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.ServiceStateTracker;
-import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCall;
 import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
+import com.android.internal.telephony.subscription.SubscriptionManagerService.SubscriptionManagerServiceCallback;
 
 import org.junit.After;
 import org.junit.Before;
@@ -155,6 +155,7 @@ public class PhoneSwitcherTest extends TelephonyTest {
     private TelephonyDisplayInfo mTelephonyDisplayInfo = new TelephonyDisplayInfo(
             TelephonyManager.NETWORK_TYPE_NR,
             TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE, false);
+    private SubscriptionManagerServiceCallback mSubscriptionManagerServiceCallback;
 
     @Before
     public void setUp() throws Exception {
@@ -203,6 +204,7 @@ public class PhoneSwitcherTest extends TelephonyTest {
         mServiceManagerMockedServices.put("isub", mIBinder);
 
         doReturn(mTelephonyDisplayInfo).when(mDisplayInfoController).getTelephonyDisplayInfo();
+        doReturn(true).when(mFeatureFlags).ddsCallback();
     }
 
     @After
@@ -2032,12 +2034,6 @@ public class PhoneSwitcherTest extends TelephonyTest {
         }
     }
 
-    private void sendDefaultDataSubChanged() {
-        final Intent intent = new Intent(TelephonyIntents.ACTION_DEFAULT_DATA_SUBSCRIPTION_CHANGED);
-        mContext.sendBroadcast(intent);
-        processAllMessages();
-    }
-
     private void initialize() throws Exception {
         setNumPhones(mActiveModemCount, mSupportedModemCount);
 
@@ -2066,6 +2062,11 @@ public class PhoneSwitcherTest extends TelephonyTest {
         processAllMessages();
 
         verify(mTelephonyRegistryManager).addOnSubscriptionsChangedListener(any(), any());
+
+        ArgumentCaptor<SubscriptionManagerServiceCallback> callbackCaptor =
+                ArgumentCaptor.forClass(SubscriptionManagerServiceCallback.class);
+        verify(mSubscriptionManagerService).registerCallback(callbackCaptor.capture());
+        mSubscriptionManagerServiceCallback = callbackCaptor.getValue();
     }
 
     /**
@@ -2231,7 +2232,8 @@ public class PhoneSwitcherTest extends TelephonyTest {
             doAnswer(invocation -> phone.getSubId() == mDefaultDataSub)
                     .when(phone).isUserDataEnabled();
         }
-        sendDefaultDataSubChanged();
+        mSubscriptionManagerServiceCallback.onDefaultDataSubscriptionChanged(defaultDataSub);
+        processAllMessages();
     }
 
     private void setSlotIndexToSubId(int slotId, int subId) {

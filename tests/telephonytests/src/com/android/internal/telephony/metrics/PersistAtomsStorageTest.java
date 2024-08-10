@@ -1182,12 +1182,12 @@ public class PersistAtomsStorageTest extends TelephonyTest {
 
         mSatelliteSession1 = new SatelliteSession();
         mSatelliteSession1.satelliteServiceInitializationResult =
-                SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+                SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteSession1.satelliteTechnology =
                 SatelliteProtoEnums.NT_RADIO_TECHNOLOGY_PROPRIETARY;
         mSatelliteSession1.count = 1;
         mSatelliteSession1.satelliteServiceTerminationResult =
-                SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+                SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteSession1.initializationProcessingTimeMillis = 100;
         mSatelliteSession1.terminationProcessingTimeMillis = 200;
         mSatelliteSession1.sessionDurationSeconds = 3;
@@ -1200,12 +1200,12 @@ public class PersistAtomsStorageTest extends TelephonyTest {
 
         mSatelliteSession2 = new SatelliteSession();
         mSatelliteSession2.satelliteServiceInitializationResult =
-                SatelliteProtoEnums.SATELLITE_MODEM_ERROR;
+                SatelliteProtoEnums.SATELLITE_RESULT_MODEM_ERROR;
         mSatelliteSession2.satelliteTechnology =
                 SatelliteProtoEnums.NT_RADIO_TECHNOLOGY_NB_IOT_NTN;
         mSatelliteSession2.count = 1;
         mSatelliteSession2.satelliteServiceTerminationResult =
-                SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+                SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteSession2.initializationProcessingTimeMillis = 300;
         mSatelliteSession2.terminationProcessingTimeMillis = 100;
         mSatelliteSession2.sessionDurationSeconds = 10;
@@ -1222,13 +1222,13 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                 };
 
         mSatelliteIncomingDatagram1 = new SatelliteIncomingDatagram();
-        mSatelliteIncomingDatagram1.resultCode = SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+        mSatelliteIncomingDatagram1.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteIncomingDatagram1.datagramSizeBytes = 1 * 1024;
         mSatelliteIncomingDatagram1.datagramTransferTimeMillis = 3 * 1000;
         mSatelliteIncomingDatagram1.isDemoMode = false;
 
         mSatelliteIncomingDatagram2 = new SatelliteIncomingDatagram();
-        mSatelliteIncomingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_MODEM_ERROR;
+        mSatelliteIncomingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_MODEM_ERROR;
         mSatelliteIncomingDatagram2.datagramSizeBytes = 512;
         mSatelliteIncomingDatagram2.datagramTransferTimeMillis = 1 * 1000;
         mSatelliteIncomingDatagram1.isDemoMode = true;
@@ -1241,7 +1241,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteOutgoingDatagram1 = new SatelliteOutgoingDatagram();
         mSatelliteOutgoingDatagram1.datagramType =
                 SatelliteProtoEnums.DATAGRAM_TYPE_LOCATION_SHARING;
-        mSatelliteOutgoingDatagram1.resultCode = SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+        mSatelliteOutgoingDatagram1.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteOutgoingDatagram1.datagramSizeBytes = 1 * 1024;
         mSatelliteOutgoingDatagram1.datagramTransferTimeMillis = 3 * 1000;
         mSatelliteOutgoingDatagram1.isDemoMode = false;
@@ -1249,7 +1249,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteOutgoingDatagram2 = new SatelliteOutgoingDatagram();
         mSatelliteOutgoingDatagram2.datagramType =
                 SatelliteProtoEnums.DATAGRAM_TYPE_SOS_MESSAGE;
-        mSatelliteOutgoingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_MODEM_ERROR;
+        mSatelliteOutgoingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_MODEM_ERROR;
         mSatelliteOutgoingDatagram2.datagramSizeBytes = 512;
         mSatelliteOutgoingDatagram2.datagramTransferTimeMillis = 1 * 1000;
         mSatelliteOutgoingDatagram1.isDemoMode = true;
@@ -1260,14 +1260,14 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                 };
 
         mSatelliteProvision1 = new SatelliteProvision();
-        mSatelliteProvision1.resultCode = SatelliteProtoEnums.SATELLITE_ERROR_NONE;
+        mSatelliteProvision1.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS;
         mSatelliteProvision1.provisioningTimeSec = 3 * 60;
         mSatelliteProvision1.isProvisionRequest = true;
         mSatelliteProvision1.isCanceled = false;
 
         mSatelliteProvision2 = new SatelliteProvision();
         mSatelliteProvision2.resultCode =
-                SatelliteProtoEnums.SATELLITE_SERVICE_NOT_PROVISIONED;
+                SatelliteProtoEnums.SATELLITE_RESULT_SERVICE_NOT_PROVISIONED;
         mSatelliteProvision2.provisioningTimeSec = 0;
         mSatelliteProvision2.isProvisionRequest = false;
         mSatelliteProvision2.isCanceled = true;

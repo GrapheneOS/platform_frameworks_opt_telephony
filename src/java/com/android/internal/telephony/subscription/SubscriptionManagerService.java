@@ -458,6 +458,13 @@ public class SubscriptionManagerService extends ISub.Stub {
          * @param subId The subscription id.
          */
         public void onUiccApplicationsEnabledChanged(int subId) {}
+
+        /**
+         * Called when {@link #getDefaultDataSubId()} changed.
+         *
+         * @param subId The subscription id.
+         */
+        public void onDefaultDataSubscriptionChanged(int subId) {}
     }
 
     /**
@@ -593,6 +600,13 @@ public class SubscriptionManagerService extends ISub.Stub {
         // Broadcast sub Id on service initialized.
         broadcastSubId(TelephonyIntents.ACTION_DEFAULT_DATA_SUBSCRIPTION_CHANGED,
                 getDefaultDataSubId());
+        if (mFeatureFlags.ddsCallback()) {
+            mSubscriptionManagerServiceCallbacks.forEach(
+                    callback -> callback.invokeFromExecutor(
+                            () -> callback.onDefaultDataSubscriptionChanged(
+                                    getDefaultDataSubId())));
+        }
+
         broadcastSubId(TelephonyIntents.ACTION_DEFAULT_VOICE_SUBSCRIPTION_CHANGED,
                 getDefaultVoiceSubId());
         broadcastSubId(SubscriptionManager.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED,
@@ -3177,6 +3191,11 @@ public class SubscriptionManagerService extends ISub.Stub {
 
                 broadcastSubId(TelephonyIntents.ACTION_DEFAULT_DATA_SUBSCRIPTION_CHANGED,
                         subId);
+                if (mFeatureFlags.ddsCallback()) {
+                    mSubscriptionManagerServiceCallbacks.forEach(
+                            callback -> callback.invokeFromExecutor(
+                                    () -> callback.onDefaultDataSubscriptionChanged(subId)));
+                }
 
                 updateDefaultSubId();
             }

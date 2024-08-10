@@ -17,8 +17,8 @@
 package com.android.internal.telephony.satellite;
 
 import static android.provider.Settings.ACTION_SATELLITE_SETTING;
-import static android.telephony.CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_TYPE;
 import static android.telephony.CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_MANUAL;
+import static android.telephony.CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_TYPE;
 import static android.telephony.CarrierConfigManager.KEY_CARRIER_ROAMING_NTN_CONNECT_TYPE_INT;
 import static android.telephony.CarrierConfigManager.KEY_CARRIER_ROAMING_NTN_EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_INT;
 import static android.telephony.CarrierConfigManager.KEY_CARRIER_ROAMING_SATELLITE_DEFAULT_SERVICES_INT_ARRAY;
@@ -28,9 +28,9 @@ import static android.telephony.CarrierConfigManager.KEY_EMERGENCY_CALL_TO_SATEL
 import static android.telephony.CarrierConfigManager.KEY_EMERGENCY_MESSAGING_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ENTITLEMENT_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.SubscriptionManager.SATELLITE_ATTACH_ENABLED_FOR_CARRIER;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
 import static android.telephony.SubscriptionManager.isValidSubscriptionId;
@@ -111,10 +111,10 @@ import android.telephony.satellite.ISatelliteProvisionStateCallback;
 import android.telephony.satellite.ISatelliteSupportedStateCallback;
 import android.telephony.satellite.ISatelliteTransmissionUpdateCallback;
 import android.telephony.satellite.NtnSignalStrength;
-import android.telephony.satellite.ProvisionSubscriberId;
 import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
+import android.telephony.satellite.SatelliteSubscriberInfo;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -1571,9 +1571,10 @@ public class SatelliteController extends Handler {
                 int subId = -1;
                 synchronized (mSatelliteTokenProvisionedLock) {
                     subId = mSubscriberIdPerSub.getOrDefault(
-                            argument.mProvisionSubscriberIdList.get(0).getSubscriberId(), -1);
-                    for (ProvisionSubscriberId subscriberId : argument.mProvisionSubscriberIdList) {
-                        mProvisionedSubscriberId.put(subscriberId.getSubscriberId(), true);
+                            argument.mSatelliteSubscriberInfoList.get(0).getSubscriberId(), -1);
+                    for (SatelliteSubscriberInfo subscriberInfo :
+                            argument.mSatelliteSubscriberInfoList) {
+                        mProvisionedSubscriberId.put(subscriberInfo.getSubscriberId(), true);
                     }
                 }
                 setSatellitePhone(subId);
@@ -1641,14 +1642,15 @@ public class SatelliteController extends Handler {
     }
 
     private static final class RequestProvisionSatelliteArgument {
-        public List<ProvisionSubscriberId> mProvisionSubscriberIdList;
-        @NonNull public ResultReceiver mResult;
+        public List<SatelliteSubscriberInfo> mSatelliteSubscriberInfoList;
+        @NonNull
+        public ResultReceiver mResult;
         public long mRequestId;
         public String mIccId;
 
-        RequestProvisionSatelliteArgument(List<ProvisionSubscriberId> provisionSubscriberIdList,
+        RequestProvisionSatelliteArgument(List<SatelliteSubscriberInfo> satelliteSubscriberInfoList,
                 ResultReceiver result) {
-            this.mProvisionSubscriberIdList = provisionSubscriberIdList;
+            this.mSatelliteSubscriberInfoList = satelliteSubscriberInfoList;
             this.mResult = result;
             this.mRequestId = sNextSatelliteEnableRequestId.getAndUpdate(
                     n -> ((n + 1) % Long.MAX_VALUE));
@@ -5605,7 +5607,7 @@ public class SatelliteController extends Handler {
             return;
         }
 
-        List<ProvisionSubscriberId> list = new ArrayList<>();
+        List<SatelliteSubscriberInfo> list = new ArrayList<>();
         synchronized (mSatelliteTokenProvisionedLock) {
             mSubscriberIdPerSub = new HashMap<>();
             for (int priority : mSubsInfoListPerPriority.keySet()) {
@@ -5624,7 +5626,7 @@ public class SatelliteController extends Handler {
                                 + "subscriberId.");
                         continue;
                     }
-                    list.add(new ProvisionSubscriberId(subscriberId, carrierId, ""));
+                    list.add(new SatelliteSubscriberInfo(subscriberId, carrierId, ""));
                     mSubscriberIdPerSub.put(subscriberId, info.getSubscriptionId());
                 }
             }
@@ -5694,7 +5696,7 @@ public class SatelliteController extends Handler {
      * @param list List of provisioned satellite subscriber ids.
      * @param result The result receiver that returns whether deliver success or fail.
      */
-    public void provisionSatellite(@NonNull List<ProvisionSubscriberId> list,
+    public void provisionSatellite(@NonNull List<SatelliteSubscriberInfo> list,
             @NonNull ResultReceiver result) {
         if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
             result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);

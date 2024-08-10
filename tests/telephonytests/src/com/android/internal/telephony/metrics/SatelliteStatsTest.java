@@ -169,9 +169,9 @@ public class SatelliteStatsTest extends TelephonyTest {
         SatelliteStats.SatelliteSessionParams param =
                 new SatelliteStats.SatelliteSessionParams.Builder()
                         .setSatelliteServiceInitializationResult(
-                                SatelliteProtoEnums.SATELLITE_ERROR_NONE)
+                                SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS)
                         .setSatelliteTechnology(SatelliteProtoEnums.NT_RADIO_TECHNOLOGY_PROPRIETARY)
-                        .setTerminationResult(SatelliteProtoEnums.SATELLITE_ERROR_NONE)
+                        .setTerminationResult(SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS)
                         .setInitializationProcessingTime(100)
                         .setTerminationProcessingTime(200)
                         .setSessionDuration(3)
@@ -212,7 +212,7 @@ public class SatelliteStatsTest extends TelephonyTest {
     public void onSatelliteIncomingDatagramMetrics_withAtoms() throws Exception {
         SatelliteStats.SatelliteIncomingDatagramParams param =
                 new SatelliteStats.SatelliteIncomingDatagramParams.Builder()
-                        .setResultCode(SatelliteProtoEnums.SATELLITE_ERROR_NONE)
+                        .setResultCode(SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS)
                         .setDatagramSizeBytes(1 * 1024)
                         .setDatagramTransferTimeMillis(3 * 1000)
                         .setIsDemoMode(true)
@@ -236,7 +236,7 @@ public class SatelliteStatsTest extends TelephonyTest {
         SatelliteStats.SatelliteOutgoingDatagramParams param =
                 new SatelliteStats.SatelliteOutgoingDatagramParams.Builder()
                         .setDatagramType(SatelliteProtoEnums.DATAGRAM_TYPE_LOCATION_SHARING)
-                        .setResultCode(SatelliteProtoEnums.SATELLITE_ERROR_NONE)
+                        .setResultCode(SatelliteProtoEnums.SATELLITE_RESULT_SUCCESS)
                         .setDatagramSizeBytes(1 * 1024)
                         .setDatagramTransferTimeMillis(3 * 1000)
                         .setIsDemoMode(true)
@@ -261,7 +261,7 @@ public class SatelliteStatsTest extends TelephonyTest {
         SatelliteStats.SatelliteProvisionParams param =
                 new SatelliteStats.SatelliteProvisionParams.Builder()
                         .setResultCode(
-                                SatelliteProtoEnums.SATELLITE_SERVICE_PROVISION_IN_PROGRESS)
+                                SatelliteProtoEnums.SATELLITE_RESULT_SERVICE_PROVISION_IN_PROGRESS)
                         .setProvisioningTimeSec(5 * 1000)
                         .setIsProvisionRequest(true)
                         .setIsCanceled(false)

@@ -172,3 +172,13 @@ flag {
   description: "Write DataRatStateChanged atom"
   bug:"318519337"
 }
+
+# OWNER=jackyu TARGET=24Q4
+flag {
+  name: "dds_callback"
+  namespace: "telephony"
+  description: "Adding new callback when DDS changed"
+  bug:"353723350"
+}
+
+
