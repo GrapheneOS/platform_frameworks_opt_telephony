@@ -30,6 +30,7 @@ import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPOR
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ENTITLEMENT_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_NIDD_APN_NAME_STRING;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.SubscriptionManager.SATELLITE_ATTACH_ENABLED_FOR_CARRIER;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
@@ -4214,6 +4215,7 @@ public class SatelliteController extends Handler {
                     KEY_EMERGENCY_MESSAGING_SUPPORTED_BOOL,
                     KEY_EMERGENCY_CALL_TO_SATELLITE_T911_HANDOVER_TIMEOUT_MILLIS_INT,
                     KEY_SATELLITE_ESOS_SUPPORTED_BOOL,
+                    KEY_SATELLITE_NIDD_APN_NAME_STRING,
                     KEY_CARRIER_ROAMING_NTN_CONNECT_TYPE_INT,
                     KEY_CARRIER_SUPPORTED_SATELLITE_NOTIFICATION_HYSTERESIS_SEC_INT,
                     KEY_CARRIER_ROAMING_NTN_EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_INT,
@@ -5619,14 +5621,16 @@ public class SatelliteController extends Handler {
                 for (SubscriptionInfo info : infoList) {
                     String subscriberId = getSubscriberId(info);
                     int carrierId = info.getCarrierId();
+                    String apn = getConfigForSubId(info.getSubscriptionId())
+                            .getString(KEY_SATELLITE_NIDD_APN_NAME_STRING);
                     logd("requestProvisionSubscriberIds: subscriberId:" + subscriberId
-                            + " , carrierId=" + carrierId);
+                            + " , carrierId=" + carrierId + " , apn=" + apn);
                     if (subscriberId.isEmpty()) {
                         logd("requestProvisionSubscriberIds: getSubscriberId failed skip this "
                                 + "subscriberId.");
                         continue;
                     }
-                    list.add(new SatelliteSubscriberInfo(subscriberId, carrierId, ""));
+                    list.add(new SatelliteSubscriberInfo(subscriberId, carrierId, apn));
                     mSubscriberIdPerSub.put(subscriberId, info.getSubscriptionId());
                 }
             }

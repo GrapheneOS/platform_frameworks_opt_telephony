@@ -1147,7 +1147,8 @@ public class MetricsCollector implements StatsManager.StatsPullAtomCallback {
                 session.vonrEnabled,
                 session.isNtn,
                 session.supportsBusinessCallComposer,
-                session.callComposerStatus);
+                session.callComposerStatus,
+                session.preciseCallStateOnSetup);
 
     }
 

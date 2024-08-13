@@ -48,6 +48,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * {@hide}
@@ -1278,15 +1279,22 @@ public class SIMRecords extends IccRecords {
 
                 case EVENT_GET_FPLMN_SIZE_DONE:
                     ar = (AsyncResult) msg.obj;
+                    int key = msg.arg2;
+
+                    Message response;
+                    Pair<Message, Object> transaction = null;
+                    if (ar.exception != null && ar.userObj != null) {
+                        response = (Message) ar.userObj;
+                    } else {
+                        transaction = retrievePendingTransaction(key);
+                        response = Objects.requireNonNull(transaction.first);
+                    }
+
                     if (ar.exception != null) {
-                        Message response = (Message) ar.userObj;
                         AsyncResult.forMessage(response).exception = ar.exception;
                         response.sendToTarget();
                         break;
                     }
-                    int key = msg.arg2;
-                    Pair<Message, Object> transaction = retrievePendingTransaction(key);
-                    Message response = transaction.first;
                     List<String> fplmns = (List<String>) transaction.second;
                     int dataLength = (int) ar.result;
                     if (dataLength < 0 || dataLength % FPLMN_BYTE_SIZE != 0) {

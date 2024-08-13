@@ -320,6 +320,7 @@ message VoiceCallSession {
     optional bool is_ntn = 41;
     optional bool supports_business_call_composer = 42;
     optional int32 call_composer_status = 43;
+    optional int32 precise_call_state_on_setup = 44;
 
     // Internal use only
     optional int64 setup_begin_millis = 10001;
