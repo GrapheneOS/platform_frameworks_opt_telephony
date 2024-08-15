@@ -1164,6 +1164,9 @@ public class ServiceStateTracker extends Handler {
 
         mDesiredPowerState = power;
         setPowerStateToDesired(forEmergencyCall, isSelectedPhoneForEmergencyCall, forceApply);
+        if (mDesiredPowerState) {
+            SatelliteController.getInstance().onSetCellularRadioPowerStateRequested(true);
+        }
     }
 
     /**
@@ -1324,6 +1327,12 @@ public class ServiceStateTracker extends Handler {
                     // as a result of radio power request
                     // Hence, issuing shut down regardless of radio power response
                     mCi.requestShutdown(null);
+                }
+
+                ar = (AsyncResult) msg.obj;
+                if (ar.exception != null) {
+                    loge("EVENT_RADIO_POWER_OFF_DONE: exception=" + ar.exception);
+                    SatelliteController.getInstance().onPowerOffCellularRadioFailed();
                 }
                 break;
 
@@ -4979,7 +4988,7 @@ public class ServiceStateTracker extends Handler {
      */
     public void powerOffRadioSafely() {
         synchronized (this) {
-            SatelliteController.getInstance().onCellularRadioPowerOffRequested();
+            SatelliteController.getInstance().onSetCellularRadioPowerStateRequested(false);
             if (DomainSelectionResolver.getInstance().isDomainSelectionSupported()) {
                 EmergencyStateTracker.getInstance().onCellularRadioPowerOffRequested();
             }

@@ -1299,6 +1299,13 @@ public class DataNetworkController extends Handler {
      * @param networkRequest The network request.
      */
     private void onAddNetworkRequest(@NonNull TelephonyNetworkRequest networkRequest) {
+        // TelephonyNetworkRequest at TelephonyNetworkProvider layer does not have config assigned
+        // (Because TelephonyNetworkProvider is a singleton across all SIMs. We are not able to
+        // retrieve the right carrier config for it.). So as soon as the request arrives
+        // DataNetworkController, we need to update the config in the request so it can update
+        // some of its config-dependent properties like request priority.
+        networkRequest.updateDataConfig(mDataConfigManager);
+
         // To detect IMS back-to-back release-request anomaly event
         if (mLastImsOperationIsRelease) {
             mLastImsOperationIsRelease = false;
@@ -1746,7 +1753,9 @@ public class DataNetworkController extends Handler {
                 // Check if request is unmetered (WiFi or unmetered APN).
                 evaluation.addDataAllowedReason(DataAllowedReason.UNMETERED_USAGE);
             } else if (transport == AccessNetworkConstants.TRANSPORT_TYPE_WWAN) {
-                if (!networkRequest.isMeteredRequest()) {
+                boolean isMeteredRequest = mDataConfigManager.isAnyMeteredCapability(
+                        networkRequest.getCapabilities(), mServiceState.getDataRoaming());
+                if (!isMeteredRequest) {
                     evaluation.addDataAllowedReason(DataAllowedReason.UNMETERED_USAGE);
                 }
             }

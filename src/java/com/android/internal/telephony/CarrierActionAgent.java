@@ -258,6 +258,8 @@ public class CarrierActionAgent extends Handler {
                 return mCarrierActionOnRadioEnabled;
             case CARRIER_ACTION_REPORT_DEFAULT_NETWORK_STATUS:
                 return mCarrierActionReportDefaultNetworkStatus;
+            case EVENT_APN_SETTINGS_CHANGED:
+                return null;  // we don't know if it's enabled, but this is not "unsupported" action
             default:
                 loge("Unsupported action: " + action);
                 return null;

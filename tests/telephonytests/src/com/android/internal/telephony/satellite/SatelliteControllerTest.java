@@ -125,6 +125,7 @@ import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.SatelliteManager.SatelliteException;
+import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.util.Pair;
@@ -182,6 +183,8 @@ public class SatelliteControllerTest extends TelephonyTest {
             "satellite_system_notification_done_key";
     private static final int[] ACTIVE_SUB_IDS = {SUB_ID};
     private static final int TEST_WAIT_FOR_SATELLITE_ENABLING_RESPONSE_TIMEOUT_MILLIS =
+            (int) TimeUnit.SECONDS.toMillis(60);
+    private static final int TEST_WAIT_FOR_CELLULAR_MODEM_OFF_TIMEOUT_MILLIS =
             (int) TimeUnit.SECONDS.toMillis(60);
 
     private static final String SATELLITE_PLMN = "00103";
@@ -517,6 +520,9 @@ public class SatelliteControllerTest extends TelephonyTest {
         mContextFixture.putIntResource(
                 R.integer.config_wait_for_satellite_enabling_response_timeout_millis,
                 TEST_WAIT_FOR_SATELLITE_ENABLING_RESPONSE_TIMEOUT_MILLIS);
+        mContextFixture.putIntResource(
+                R.integer.config_satellite_wait_for_cellular_modem_off_timeout_millis,
+                TEST_WAIT_FOR_CELLULAR_MODEM_OFF_TIMEOUT_MILLIS);
         doReturn(ACTIVE_SUB_IDS).when(mMockSubscriptionManagerService).getActiveSubIdList(true);
 
         mCarrierConfigBundle = mContextFixture.getCarrierConfigBundle();
@@ -727,6 +733,87 @@ public class SatelliteControllerTest extends TelephonyTest {
         processAllMessages();
         verify(mMockSatelliteModemInterface, times(5))
                 .requestIsSatelliteSupported(any(Message.class));
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // Radio is off during TN -> NTN image switch, SatelliteController should not set radio
+        // state to OFF
+        setRadioPower(false);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // Turn on radio
+        setRadioPower(true);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // APM is triggered
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertTrue(mSatelliteControllerUT.isRadioOffRequested());
+        assertTrue(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // SatelliteController should set the radio state to OFF
+        setRadioPower(false);
+        processAllMessages();
+        assertFalse(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // Turn on radio
+        setRadioPower(true);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // APM is triggered
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertTrue(mSatelliteControllerUT.isRadioOffRequested());
+        assertTrue(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // Modem fails to power off radio. APM is disabled
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(true);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // APM is triggered
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertTrue(mSatelliteControllerUT.isRadioOffRequested());
+        assertTrue(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // The timer WaitForCellularModemOff time out
+        moveTimeForward(TEST_WAIT_FOR_CELLULAR_MODEM_OFF_TIMEOUT_MILLIS);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // APM is triggered
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertTrue(mSatelliteControllerUT.isRadioOffRequested());
+        assertTrue(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
+
+        // Modem failed to power off the radio
+        mSatelliteControllerUT.onPowerOffCellularRadioFailed();
+        processAllMessages();
+        assertTrue(mSatelliteControllerUT.isRadioOn());
+        assertFalse(mSatelliteControllerUT.isRadioOffRequested());
+        assertFalse(mSatelliteControllerUT.isWaitForCellularModemOffTimerStarted());
     }
 
     @Test
@@ -847,7 +934,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         mSatelliteControllerUT.setSettingsKeyToAllowDeviceRotationCalled = false;
         setUpResponseForRequestSatelliteEnabled(false, false, false, SATELLITE_RESULT_SUCCESS);
         setRadioPower(false);
-        mSatelliteControllerUT.onCellularRadioPowerOffRequested();
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
         processAllMessages();
         sendSatelliteModemStateChangedEvent(SATELLITE_MODEM_STATE_OFF, null);
         processAllMessages();
@@ -1061,11 +1148,48 @@ public class SatelliteControllerTest extends TelephonyTest {
 
         resetSatelliteControllerUTToOnAndProvisionedState();
         when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(false);
-        mSatelliteControllerUT.onCellularRadioPowerOffRequested();
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
         processAllMessages();
         // Satellite should not be powered off since the feature flag oemEnabledSatelliteFlag is
         // disabled
         when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
+
+        // Successfully disable satellite.
+        when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        mIIntegerConsumerResults.clear();
+        setUpResponseForRequestSatelliteEnabled(false, false, false, SATELLITE_RESULT_SUCCESS);
+        mSatelliteControllerUT.requestSatelliteEnabled(SUB_ID, false, false, false,
+                mIIntegerConsumer);
+        processAllMessages();
+        assertTrue(waitForIIntegerConsumerResult(1));
+        assertEquals(SATELLITE_RESULT_SUCCESS, (long) mIIntegerConsumerResults.get(0));
+        verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
+
+        // Fail to enable satellite when radio is being powered off.
+        mIIntegerConsumerResults.clear();
+        setUpResponseForRequestSatelliteEnabled(true, false, false, SATELLITE_RESULT_SUCCESS);
+        mSatelliteControllerUT.onSetCellularRadioPowerStateRequested(false);
+        mSatelliteControllerUT.requestSatelliteEnabled(SUB_ID, true, false, false,
+                mIIntegerConsumer);
+        processAllMessages();
+        assertTrue(waitForIIntegerConsumerResult(1));
+        // Radio is being powered off, can not enable satellite
+        assertEquals(SATELLITE_RESULT_INVALID_MODEM_STATE, (long) mIIntegerConsumerResults.get(0));
+
+        // Modem failed to power off
+        mSatelliteControllerUT.onPowerOffCellularRadioFailed();
+
+        // Successfully enable satellite when radio is on.
+        mIIntegerConsumerResults.clear();
+        mSatelliteControllerUT.setSettingsKeyForSatelliteModeCalled = false;
+        mSatelliteControllerUT.setSettingsKeyToAllowDeviceRotationCalled = false;
+        setUpResponseForRequestSatelliteEnabled(true, false, false, SATELLITE_RESULT_SUCCESS);
+        mSatelliteControllerUT.requestSatelliteEnabled(SUB_ID, true, false, false,
+                mIIntegerConsumer);
+        processAllMessages();
+        assertTrue(waitForIIntegerConsumerResult(1));
+        assertEquals(SATELLITE_RESULT_SUCCESS, (long) mIIntegerConsumerResults.get(0));
         verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
     }
 
@@ -1446,6 +1570,12 @@ public class SatelliteControllerTest extends TelephonyTest {
                             loge("onSatelliteProvisionStateChanged: Got exception in releasing "
                                     + "semaphore, ex=" + ex);
                         }
+                    }
+
+                    @Override
+                    public void onSatelliteSubscriptionProvisionStateChanged(
+                            List<SatelliteSubscriberProvisionStatus> status) {
+                        logd("onSatelliteSubscriptionProvisionStateChanged: " + status);
                     }
                 };
         int errorCode = mSatelliteControllerUT.registerForSatelliteProvisionStateChanged(
@@ -4711,6 +4841,22 @@ public class SatelliteControllerTest extends TelephonyTest {
             synchronized (mSatelliteViaOemProvisionLock) {
                 mIsSatelliteViaOemProvisioned = isProvisioned;
             }
+        }
+
+        public boolean isRadioOn() {
+            synchronized (mIsRadioOnLock) {
+                return mIsRadioOn;
+            }
+        }
+
+        public boolean isRadioOffRequested() {
+            synchronized (mIsRadioOnLock) {
+                return mRadioOffRequested;
+            }
+        }
+
+        public boolean isWaitForCellularModemOffTimerStarted() {
+            return hasMessages(EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT);
         }
     }
 }

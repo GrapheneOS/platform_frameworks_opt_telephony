@@ -241,6 +241,7 @@ public class SatelliteController extends Handler {
     private static final int EVENT_NOTIFY_NTN_ELIGIBILITY_HYSTERESIS_TIMED_OUT = 46;
     private static final int EVENT_WIFI_CONNECTIVITY_STATE_CHANGED = 47;
     private static final int EVENT_SATELLITE_ACCESS_RESTRICTION_CHECKING_RESULT = 48;
+    protected static final int EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT = 49;
 
     @NonNull private static SatelliteController sInstance;
     @NonNull private final Context mContext;
@@ -344,9 +345,13 @@ public class SatelliteController extends Handler {
     private final Object mIsSatelliteEnabledLock = new Object();
     @GuardedBy("mIsSatelliteEnabledLock")
     private Boolean mIsSatelliteEnabled = null;
-    private final Object mIsRadioOnLock = new Object();
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    protected final Object mIsRadioOnLock = new Object();
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    protected boolean mIsRadioOn;
     @GuardedBy("mIsRadioOnLock")
-    private boolean mIsRadioOn = false;
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    protected boolean mRadioOffRequested = false;
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     protected final Object mSatelliteViaOemProvisionLock = new Object();
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
@@ -1325,6 +1330,14 @@ public class SatelliteController extends Handler {
                         mIsRadioOn = true;
                     } else if (mCi.getRadioState() == TelephonyManager.RADIO_POWER_OFF) {
                         resetCarrierRoamingSatelliteModeParams();
+                        synchronized (mIsRadioOnLock) {
+                            if (mRadioOffRequested) {
+                                logd("EVENT_RADIO_STATE_CHANGED: set mIsRadioOn to false");
+                                stopWaitForCellularModemOffTimer();
+                                mIsRadioOn = false;
+                                mRadioOffRequested = false;
+                            }
+                        }
                     }
                 }
 
@@ -1635,6 +1648,13 @@ public class SatelliteController extends Handler {
                 break;
             }
 
+            case EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT: {
+                plogw("Timed out to wait for cellular modem OFF state");
+                synchronized (mIsRadioOnLock) {
+                    mRadioOffRequested = false;
+                }
+            }
+
             default:
                 Log.w(TAG, "SatelliteControllerHandler: unexpected message code: " +
                         msg.what);
@@ -1712,6 +1732,12 @@ public class SatelliteController extends Handler {
             synchronized (mIsRadioOnLock) {
                 if (!mIsRadioOn) {
                     ploge("Radio is not on, can not enable satellite");
+                    sendErrorAndReportSessionMetrics(
+                            SatelliteManager.SATELLITE_RESULT_INVALID_MODEM_STATE, result);
+                    return;
+                }
+                if (mRadioOffRequested) {
+                    ploge("Radio is being powering off, can not enable satellite");
                     sendErrorAndReportSessionMetrics(
                             SatelliteManager.SATELLITE_RESULT_INVALID_MODEM_STATE, result);
                     return;
@@ -2900,27 +2926,50 @@ public class SatelliteController extends Handler {
 
     /**
      * This function is used by {@link com.android.internal.telephony.ServiceStateTracker} to notify
-     * {@link SatelliteController} that it has received a request to power off the cellular radio
-     * modem. {@link SatelliteController} will then power off the satellite modem.
+     * {@link SatelliteController} that it has received a request to power on or off the cellular
+     * radio modem.
+     *
+     * @param powerOn {@code true} means cellular radio is about to be powered on, {@code false}
+     *                 means cellular modem is about to be powered off.
      */
-    public void onCellularRadioPowerOffRequested() {
-        logd("onCellularRadioPowerOffRequested()");
+    public void onSetCellularRadioPowerStateRequested(boolean powerOn) {
+        logd("onSetCellularRadioPowerStateRequested: powerOn=" + powerOn);
         if (!mFeatureFlags.oemEnabledSatelliteFlag()) {
-            plogd("onCellularRadioPowerOffRequested: oemEnabledSatelliteFlag is disabled");
+            plogd("onSetCellularRadioPowerStateRequested: oemEnabledSatelliteFlag is disabled");
             return;
         }
 
         synchronized (mIsRadioOnLock) {
-            mIsRadioOn = false;
+            mRadioOffRequested = !powerOn;
         }
-        requestSatelliteEnabled(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
-                false /* enableSatellite */, false /* enableDemoMode */, false /* isEmergency */,
-                new IIntegerConsumer.Stub() {
-                    @Override
-                    public void accept(int result) {
-                        plogd("onRadioPowerOffRequested: requestSatelliteEnabled result=" + result);
-                    }
-                });
+        if (powerOn) {
+            stopWaitForCellularModemOffTimer();
+        } else {
+            requestSatelliteEnabled(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+                    false /* enableSatellite */, false /* enableDemoMode */,
+                    false /* isEmergency */,
+                    new IIntegerConsumer.Stub() {
+                        @Override
+                        public void accept(int result) {
+                            plogd("onSetCellularRadioPowerStateRequested: requestSatelliteEnabled"
+                                    + " result=" + result);
+                        }
+                    });
+            startWaitForCellularModemOffTimer();
+        }
+    }
+
+    /**
+     * This function is used by {@link com.android.internal.telephony.ServiceStateTracker} to notify
+     * {@link SatelliteController} that the request to power off the cellular radio modem has
+     * failed.
+     */
+    public void onPowerOffCellularRadioFailed() {
+        logd("onPowerOffCellularRadioFailed");
+        synchronized (mIsRadioOnLock) {
+            mRadioOffRequested = false;
+            stopWaitForCellularModemOffTimer();
+        }
     }
 
     /**
@@ -4954,6 +5003,32 @@ public class SatelliteController extends Handler {
     private long getWaitForSatelliteEnablingResponseTimeoutMillis() {
         return mContext.getResources().getInteger(
                 R.integer.config_wait_for_satellite_enabling_response_timeout_millis);
+    }
+
+    private long getWaitForCellularModemOffTimeoutMillis() {
+        return mContext.getResources().getInteger(
+                R.integer.config_satellite_wait_for_cellular_modem_off_timeout_millis);
+    }
+
+    private void startWaitForCellularModemOffTimer() {
+        synchronized (mIsRadioOnLock) {
+            if (hasMessages(EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT)) {
+                plogd("startWaitForCellularModemOffTimer: the timer was already started");
+                return;
+            }
+            long timeoutMillis = getWaitForCellularModemOffTimeoutMillis();
+            plogd("Start timer to wait for cellular modem OFF state, timeoutMillis="
+                    + timeoutMillis);
+            sendMessageDelayed(obtainMessage(EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT),
+                    timeoutMillis);
+        }
+    }
+
+    private void stopWaitForCellularModemOffTimer() {
+        synchronized (mSatelliteEnabledRequestLock) {
+            plogd("Stop timer to wait for cellular modem OFF state");
+            removeMessages(EVENT_WAIT_FOR_CELLULAR_MODEM_OFF_TIMED_OUT);
+        }
     }
 
     private void startWaitForSatelliteEnablingResponseTimer(

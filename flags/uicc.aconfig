@@ -69,3 +69,11 @@ flag {
         purpose: PURPOSE_BUGFIX
     }
 }
+
+# OWNER=mewan TARGET=24Q4
+flag {
+    name: "optimization_apdu_sender"
+    namespace: "telephony"
+    description: "This flag controls optimization of apdu sender class."
+    bug:"335257880"
+}
