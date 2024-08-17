@@ -116,6 +116,7 @@ import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.SatelliteSubscriberInfo;
+import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -5599,14 +5600,20 @@ public class SatelliteController extends Handler {
 
     // The subscriberId for ntnOnly SIMs is the Iccid, whereas for ESOS supported SIMs, the
     // subscriberId is the Imsi prefix 6 digit + phone number.
-    private @NonNull String getSubscriberId(SubscriptionInfo info) {
+    private Pair<String, Integer> getSubscriberIdAndType(SubscriptionInfo info) {
+        String subscriberId = "";
+        @SatelliteSubscriberInfo.SubscriberIdType int subscriberIdType =
+                SatelliteSubscriberInfo.ICCID;
         if (info.isSatelliteESOSSupported()) {
-            return getPhoneNumberBasedCarrier(info.getSubscriptionId());
+            subscriberId = getPhoneNumberBasedCarrier(info.getSubscriptionId());
+            subscriberIdType = SatelliteSubscriberInfo.IMSI_MSISDN;
         }
         if (info.isOnlyNonTerrestrialNetwork()) {
-            return info.getIccId();
+            subscriberId = info.getIccId();
         }
-        return "";
+        logd("getSubscriberIdAndType: subscriberId=" + subscriberId + ", subscriberIdType="
+                + subscriberIdType);
+        return new Pair<>(subscriberId, subscriberIdType);
     }
 
     private String getPhoneNumberBasedCarrier(int subId) {
@@ -5615,7 +5622,6 @@ public class SatelliteController extends Handler {
         SubscriptionManager subscriptionManager = mContext.getSystemService(
                 SubscriptionManager.class);
         String phoneNumber = subscriptionManager.getPhoneNumber(subId);
-
         if (phoneNumber == null) {
             logd("getPhoneNumberBasedCarrier: phoneNumber null");
             return "";
@@ -5678,74 +5684,56 @@ public class SatelliteController extends Handler {
      * @param result The result receiver, which returns the list of prioritized satellite tokens
      * to be used for provision if the request is successful or an error code if the request failed.
      */
-    public void requestProvisionSubscriberIds(@NonNull ResultReceiver result) {
+    public void requestSatelliteSubscriberProvisionStatus(@NonNull ResultReceiver result) {
         if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
             result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
             return;
         }
 
-        List<SatelliteSubscriberInfo> list = new ArrayList<>();
+        List<SatelliteSubscriberProvisionStatus> list = new ArrayList<>();
         synchronized (mSatelliteTokenProvisionedLock) {
             mSubscriberIdPerSub = new HashMap<>();
             for (int priority : mSubsInfoListPerPriority.keySet()) {
                 List<SubscriptionInfo> infoList = mSubsInfoListPerPriority.get(priority);
                 if (infoList == null) {
-                    logd("requestProvisionSubscriberIds: no exist this priority " + priority);
+                    logd("requestSatelliteSubscriberProvisionStatus: no exist this priority "
+                            + priority);
                     continue;
                 }
                 for (SubscriptionInfo info : infoList) {
-                    String subscriberId = getSubscriberId(info);
+                    Pair<String, Integer> subscriberIdPair = getSubscriberIdAndType(info);
+                    String subscriberId = subscriberIdPair.first;
                     int carrierId = info.getCarrierId();
                     String apn = getConfigForSubId(info.getSubscriptionId())
                             .getString(KEY_SATELLITE_NIDD_APN_NAME_STRING);
-                    logd("requestProvisionSubscriberIds: subscriberId:" + subscriberId
-                            + " , carrierId=" + carrierId + " , apn=" + apn);
+                    logd("requestSatelliteSubscriberProvisionStatus: subscriberId:"
+                            + subscriberId + " , carrierId=" + carrierId + " , apn=" + apn);
                     if (subscriberId.isEmpty()) {
-                        logd("requestProvisionSubscriberIds: getSubscriberId failed skip this "
-                                + "subscriberId.");
+                        logd("requestSatelliteSubscriberProvisionStatus: getSubscriberId "
+                                + "failed skip this subscriberId.");
                         continue;
                     }
-                    list.add(new SatelliteSubscriberInfo(subscriberId, carrierId, apn));
+                    SatelliteSubscriberInfo satelliteSubscriberInfo =
+                            new SatelliteSubscriberInfo.Builder().setSubscriberId(subscriberId)
+                                    .setCarrierId(carrierId).setNiddApn(apn)
+                                    .setSubId(info.getSubscriptionId())
+                                    .setSubscriberIdType(subscriberIdPair.second)
+                                    .build();
+                    boolean provisioned = mProvisionedSubscriberId.getOrDefault(
+                            subscriberId, false);
+                    logd("requestSatelliteSubscriberProvisionStatus: satelliteSubscriberInfo="
+                            + satelliteSubscriberInfo + ", provisioned=" + provisioned);
+                    list.add(new SatelliteSubscriberProvisionStatus.Builder()
+                            .setSatelliteSubscriberInfo(satelliteSubscriberInfo)
+                            .setProvisionStatus(provisioned).build());
                     mSubscriberIdPerSub.put(subscriberId, info.getSubscriptionId());
                 }
             }
         }
 
-        logd("requestProvisionSubscriberIds: " + list);
+        logd("requestSatelliteSubscriberProvisionStatus: " + list);
         final Bundle bundle = new Bundle();
         bundle.putParcelableList(SatelliteManager.KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN, list);
-        result.send(SATELLITE_RESULT_SUCCESS, bundle);
-    }
-
-    /**
-     * Request to get provisioned status for given a satellite subscriber id.
-     *
-     * @param satelliteSubscriberId Satellite subscriber id requiring provisioned status check.
-     * @param result The result receiver, which returns the provisioned status of the token if the
-     * request is successful or an error code if the request failed.
-     */
-    public void requestIsProvisioned(@NonNull String satelliteSubscriberId,
-            @NonNull ResultReceiver result) {
-        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
-            result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
-            return;
-        }
-        if (satelliteSubscriberId.isEmpty()) {
-            result.send(SATELLITE_RESULT_INVALID_ARGUMENTS, null);
-            return;
-        }
-
-        boolean isProvisioned = false;
-        synchronized (mSatelliteTokenProvisionedLock) {
-            if (mProvisionedSubscriberId.getOrDefault(satelliteSubscriberId, false)) {
-                isProvisioned = true;
-            }
-        }
-
-        logd("requestIsProvisioned: satelliteSubscriberId=" + satelliteSubscriberId
-                + " , isProvisioned=" + isProvisioned);
-        final Bundle bundle = new Bundle();
-        bundle.putBoolean(SatelliteManager.KEY_IS_SATELLITE_PROVISIONED, isProvisioned);
         result.send(SATELLITE_RESULT_SUCCESS, bundle);
     }
 
@@ -5757,8 +5745,8 @@ public class SatelliteController extends Handler {
             return false;
         }
 
-        String subscriberId = getSubscriberId(
-                mSubscriptionManagerService.getSubscriptionInfo(subId));
+        String subscriberId = getSubscriberIdAndType(
+                mSubscriptionManagerService.getSubscriptionInfo(subId)).first;
         if (subscriberId.isEmpty()) {
             plogd("isSubscriptionProvisioned: subId=" + subId + " subscriberId is empty.");
             return false;

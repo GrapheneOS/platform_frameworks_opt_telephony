@@ -2516,6 +2516,30 @@ public class DataNetworkController extends Handler {
     }
 
     private void onRemoveNetworkRequest(@NonNull TelephonyNetworkRequest request) {
+        if (mFeatureFlags.supportNetworkProvider()) {
+            if (!mAllNetworkRequestList.remove(request)) {
+                loge("onRemoveNetworkRequest: Network request does not exist. " + request);
+                return;
+            }
+
+            if (request.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS)) {
+                mImsThrottleCounter.addOccurrence();
+                mLastReleasedImsRequestCapabilities = request.getCapabilities();
+                mLastImsOperationIsRelease = true;
+            }
+
+            if (request.getAttachedNetwork() != null) {
+                request.getAttachedNetwork().detachNetworkRequest(
+                        request, false /* shouldRetry */);
+            }
+
+            request.setState(TelephonyNetworkRequest.REQUEST_STATE_UNSATISFIED);
+            request.setEvaluation(null);
+
+            log("onRemoveNetworkRequest: Removed " + request);
+            return;
+        }
+
         // The request generated from telephony network factory does not contain the information
         // the original request has, for example, attached data network. We need to find the
         // original one.
@@ -2536,7 +2560,7 @@ public class DataNetworkController extends Handler {
 
         if (networkRequest.getAttachedNetwork() != null) {
             networkRequest.getAttachedNetwork().detachNetworkRequest(
-                        networkRequest, false /* shouldRetry */);
+                    networkRequest, false /* shouldRetry */);
         }
         log("onRemoveNetworkRequest: Removed " + networkRequest);
     }

@@ -100,6 +100,7 @@ import com.android.internal.telephony.data.DataRetryManager.DataHandoverRetryEnt
 import com.android.internal.telephony.data.DataRetryManager.DataRetryEntry;
 import com.android.internal.telephony.data.DataSettingsManager.DataSettingsManagerCallback;
 import com.android.internal.telephony.data.LinkBandwidthEstimator.LinkBandwidthEstimatorCallback;
+import com.android.internal.telephony.data.PhoneSwitcher.PhoneSwitcherCallback;
 import com.android.internal.telephony.data.TelephonyNetworkAgent.TelephonyNetworkAgentCallback;
 import com.android.internal.telephony.flags.FeatureFlags;
 import com.android.internal.telephony.metrics.DataCallSessionStats;
@@ -270,6 +271,9 @@ public class DataNetwork extends StateMachine {
 
     /** Event for response to data network validation request. */
     private static final int EVENT_DATA_NETWORK_VALIDATION_RESPONSE = 29;
+
+    /** Event for preferred data subscription changed. */
+    private static final int EVENT_PREFERRED_DATA_SUBSCRIPTION_CHANGED = 30;
 
     /** Invalid context id. */
     private static final int INVALID_CID = -1;
@@ -591,6 +595,10 @@ public class DataNetwork extends StateMachine {
     @NonNull
     private final DataNetworkController mDataNetworkController;
 
+    /** Phone switcher which is responsible to determine which phone to route network request. */
+    @NonNull
+    private final PhoneSwitcher mPhoneSwitcher;
+
     /** Data network controller callback. */
     @NonNull
     private final DataNetworkController.DataNetworkControllerCallback
@@ -675,6 +683,13 @@ public class DataNetwork extends StateMachine {
 
     /** Whether the current data network is congested. */
     private boolean mCongested = false;
+
+    /**
+     * Whether the current data network is on preferred data modem.
+     *
+     * @see PhoneSwitcher#getPreferredDataPhoneId()
+     */
+    private boolean mOnPreferredDataPhone;
 
     /** The network requests associated with this data network */
     @NonNull
@@ -813,6 +828,12 @@ public class DataNetwork extends StateMachine {
      */
     @Nullable
     private PreciseDataConnectionState mPreciseDataConnectionState;
+
+    /**
+     * Callback to listen event from {@link PhoneSwitcher}.
+     */
+    @NonNull
+    private PhoneSwitcherCallback mPhoneSwitcherCallback;
 
     /**
      * The network bandwidth.
@@ -1027,6 +1048,8 @@ public class DataNetwork extends StateMachine {
         mAccessNetworksManager = phone.getAccessNetworksManager();
         mVcnManager = mPhone.getContext().getSystemService(VcnManager.class);
         mDataNetworkController = phone.getDataNetworkController();
+        mPhoneSwitcher = PhoneSwitcher.getInstance();
+        mOnPreferredDataPhone = phone.getPhoneId() == mPhoneSwitcher.getPreferredDataPhoneId();
         mDataNetworkControllerCallback = new DataNetworkController.DataNetworkControllerCallback(
                 getHandler()::post) {
             @Override
@@ -1156,14 +1179,25 @@ public class DataNetwork extends StateMachine {
             configBuilder.setNat64DetectionEnabled(false);
         }
 
-        final NetworkFactory factory = PhoneFactory.getNetworkFactory(
-                mPhone.getPhoneId());
-        final NetworkProvider provider = (null == factory) ? null : factory.getProvider();
+        NetworkProvider provider;
+        if (mFlags.supportNetworkProvider()) {
+            provider = PhoneFactory.getNetworkProvider();
+        } else {
+            final NetworkFactory factory = PhoneFactory.getNetworkFactory(
+                    mPhone.getPhoneId());
+            provider = (null == factory) ? null : factory.getProvider();
+        }
 
-        mNetworkScore = new NetworkScore.Builder()
-               .setKeepConnectedReason(isHandoverInProgress()
+        NetworkScore.Builder builder = new NetworkScore.Builder()
+                .setKeepConnectedReason(isHandoverInProgress()
                         ? NetworkScore.KEEP_CONNECTED_FOR_HANDOVER
-                        : NetworkScore.KEEP_CONNECTED_NONE).build();
+                        : NetworkScore.KEEP_CONNECTED_NONE);
+        if (mFlags.supportNetworkProvider()) {
+            builder.setTransportPrimary(mOnPreferredDataPhone);
+        }
+        mNetworkScore = builder.build();
+        logl("mNetworkScore: isPrimary=" + mNetworkScore.isTransportPrimary()
+                + ", keepConnectedReason=" + mNetworkScore.getKeepConnectedReason());
 
         return new TelephonyNetworkAgent(mPhone, getHandler().getLooper(), this,
                 mNetworkScore, configBuilder.build(), provider,
@@ -1224,6 +1258,16 @@ public class DataNetwork extends StateMachine {
 
             mDataNetworkController.getDataSettingsManager()
                     .registerCallback(mDataSettingsManagerCallback);
+
+            if (mFlags.supportNetworkProvider()) {
+                mPhoneSwitcherCallback = new PhoneSwitcherCallback(Runnable::run) {
+                    @Override
+                    public void onPreferredDataPhoneIdChanged(int phoneId) {
+                        sendMessage(EVENT_PREFERRED_DATA_SUBSCRIPTION_CHANGED, phoneId, 0);
+                    }
+                };
+                mPhoneSwitcher.registerCallback(mPhoneSwitcherCallback);
+            }
 
             mPhone.getDisplayInfoController().registerForTelephonyDisplayInfoChanged(
                     getHandler(), EVENT_DISPLAY_INFO_CHANGED, null);
@@ -1318,6 +1362,9 @@ public class DataNetwork extends StateMachine {
             mPhone.getServiceStateTracker().unregisterForServiceStateChanged(getHandler());
             mPhone.getDisplayInfoController().unregisterForTelephonyDisplayInfoChanged(
                     getHandler());
+            if (mFlags.supportNetworkProvider()) {
+                mPhoneSwitcher.unregisterCallback(mPhoneSwitcherCallback);
+            }
             mDataNetworkController.getDataSettingsManager()
                     .unregisterCallback(mDataSettingsManagerCallback);
             mRil.unregisterForPcoData(getHandler());
@@ -1351,13 +1398,13 @@ public class DataNetwork extends StateMachine {
                 }
                 case EVENT_ATTACH_NETWORK_REQUEST: {
                     onAttachNetworkRequests((NetworkRequestList) msg.obj);
-                    updateNetworkScore(isHandoverInProgress());
+                    updateNetworkScore();
                     break;
                 }
                 case EVENT_DETACH_NETWORK_REQUEST: {
                     onDetachNetworkRequest((TelephonyNetworkRequest) msg.obj,
                             msg.arg1 != 0 /* shouldRetry */);
-                    updateNetworkScore(isHandoverInProgress());
+                    updateNetworkScore();
                     break;
                 }
                 case EVENT_DETACH_ALL_NETWORK_REQUESTS: {
@@ -1427,6 +1474,12 @@ public class DataNetwork extends StateMachine {
                 case EVENT_DATA_NETWORK_VALIDATION_RESPONSE:
                     // handle the resultCode in response for the request.
                     handleDataNetworkValidationRequestResultCode(msg.arg1 /* resultCode */);
+                    break;
+                case EVENT_PREFERRED_DATA_SUBSCRIPTION_CHANGED:
+                    mOnPreferredDataPhone = mPhone.getPhoneId() == msg.arg1;
+                    logl("Preferred data phone id changed to " + msg.arg1
+                            + ", mOnPreferredDataPhone=" + mOnPreferredDataPhone);
+                    updateNetworkScore();
                     break;
                 default:
                     loge("Unhandled event " + eventToString(msg.what));
@@ -3314,6 +3367,12 @@ public class DataNetwork extends StateMachine {
         return mLinkStatus;
     }
 
+    /**
+     * Update the network score and report to connectivity service if necessary.
+     */
+    private void updateNetworkScore() {
+        updateNetworkScore(isHandoverInProgress());
+    }
 
     /**
      * Update the network score and report to connectivity service if necessary.
@@ -3323,10 +3382,18 @@ public class DataNetwork extends StateMachine {
     private void updateNetworkScore(boolean keepConnectedForHandover) {
         int connectedReason = keepConnectedForHandover
                 ? NetworkScore.KEEP_CONNECTED_FOR_HANDOVER : NetworkScore.KEEP_CONNECTED_NONE;
-        if (mNetworkScore.getKeepConnectedReason() != connectedReason) {
-            mNetworkScore = new NetworkScore.Builder()
-                    .setKeepConnectedReason(connectedReason).build();
+        if (mNetworkScore.getKeepConnectedReason() != connectedReason
+                || (mFlags.supportNetworkProvider()
+                && mNetworkScore.isTransportPrimary() != mOnPreferredDataPhone)) {
+            NetworkScore.Builder builder = new NetworkScore.Builder()
+                    .setKeepConnectedReason(connectedReason);
+            if (mFlags.supportNetworkProvider()) {
+                builder.setTransportPrimary(mOnPreferredDataPhone);
+            }
+            mNetworkScore = builder.build();
             mNetworkAgent.sendNetworkScore(mNetworkScore);
+            logl("updateNetworkScore: isPrimary=" + mNetworkScore.isTransportPrimary()
+                    + ", keepConnectedForHandover=" + keepConnectedForHandover);
         }
     }
 
@@ -4055,12 +4122,14 @@ public class DataNetwork extends StateMachine {
         pw.println("Tag: " + name());
         pw.increaseIndent();
         pw.println("mSubId=" + mSubId);
+        pw.println("mOnPreferredDataPhone=" + mOnPreferredDataPhone);
         pw.println("mTransport=" + AccessNetworkConstants.transportTypeToString(mTransport));
         pw.println("mLastKnownDataNetworkType=" + TelephonyManager
                 .getNetworkTypeName(mLastKnownDataNetworkType));
         pw.println("WWAN cid=" + mCid.get(AccessNetworkConstants.TRANSPORT_TYPE_WWAN));
         pw.println("WLAN cid=" + mCid.get(AccessNetworkConstants.TRANSPORT_TYPE_WLAN));
         pw.println("mNetworkScore=" + mNetworkScore);
+        pw.println("keepConnectedReason=" + mNetworkScore.getKeepConnectedReason());
         pw.println("mDataAllowedReason=" + mDataAllowedReason);
         pw.println("mPduSessionId=" + mPduSessionId);
         pw.println("mDataProfile=" + mDataProfile);

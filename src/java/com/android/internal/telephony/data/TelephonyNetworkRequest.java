@@ -488,7 +488,7 @@ public class TelephonyNetworkRequest {
      *
      * @param evaluation The data evaluation result.
      */
-    public void setEvaluation(@NonNull DataEvaluation evaluation) {
+    public void setEvaluation(@Nullable DataEvaluation evaluation) {
         mEvaluation = evaluation;
     }
 
