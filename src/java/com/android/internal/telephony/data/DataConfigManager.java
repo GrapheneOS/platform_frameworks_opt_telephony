@@ -643,10 +643,8 @@ public class DataConfigManager extends Handler {
         // Consumer slices are the slices that are allowed to be accessed by regular application to
         // get better performance. They should be metered. This can be turned into configurations in
         // the future.
-        if (mFeatureFlags.meteredEmbbUrlcc()) {
-            meteredCapabilities.add(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH);
-            meteredCapabilities.add(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_LATENCY);
-        }
+        meteredCapabilities.add(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH);
+        meteredCapabilities.add(NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_LATENCY);
 
         return Collections.unmodifiableSet(meteredCapabilities);
     }
@@ -761,7 +759,6 @@ public class DataConfigManager extends Handler {
      */
     public boolean allowBringUpNetworkInNonVops(@NetworkRegistrationInfo.RegistrationState
             int regState) {
-        if (!mFeatureFlags.allowMmtelInNonVops()) return false;
         int networkType = -1;
         if (regState == NetworkRegistrationInfo.REGISTRATION_STATE_HOME) {
             networkType = CarrierConfigManager.Ims.NETWORK_TYPE_HOME;

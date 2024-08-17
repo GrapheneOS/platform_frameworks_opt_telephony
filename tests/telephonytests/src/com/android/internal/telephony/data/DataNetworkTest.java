@@ -2419,7 +2419,6 @@ public class DataNetworkTest extends TelephonyTest {
 
     @Test
     public void testMmsCapabilityRemovedWhenMmsPreferredOnIwlan() throws Exception {
-        doReturn(true).when(mFeatureFlags).forceIwlanMms();
         setupDataNetwork();
 
         TelephonyNetworkAgent mockNetworkAgent = Mockito.mock(TelephonyNetworkAgent.class);
