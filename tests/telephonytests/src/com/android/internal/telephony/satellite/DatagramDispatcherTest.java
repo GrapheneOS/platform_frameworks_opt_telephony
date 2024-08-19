@@ -48,6 +48,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.os.AsyncResult;
+import android.os.Binder;
 import android.os.Looper;
 import android.os.Message;
 import android.telephony.Rlog;
@@ -1196,8 +1197,8 @@ public class DatagramDispatcherTest extends TelephonyTest {
     private PendingRequest createPendingRequest() {
         return new PendingRequest(
                 SmsDispatchersController.PendingRequest.TYPE_TEXT, null, "test-app",
-                "1111", "2222", asArrayList(null), asArrayList(null),
-                false, null, 0, asArrayList("text"), null,
-                false, 0, false, 10, 100L, false);
+                Binder.getCallingUserHandle().getIdentifier(), "1111", "2222", asArrayList(null),
+                asArrayList(null), false, null, 0, asArrayList("text"), null, false, 0, false,
+                10, 100L, false);
     }
 }
