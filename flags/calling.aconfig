@@ -4,7 +4,6 @@ container: "system"
 # OWNER=breadley TARGET=24Q3
 flag {
   name: "simultaneous_calling_indications"
-  is_exported: true
   namespace: "telephony"
   description: "APIs that are used to notify simultaneous calling changes to other applications."
   bug: "297446980"
@@ -50,4 +49,5 @@ flag {
     metadata {
         purpose: PURPOSE_BUGFIX
     }
+    is_exported: true
 }
