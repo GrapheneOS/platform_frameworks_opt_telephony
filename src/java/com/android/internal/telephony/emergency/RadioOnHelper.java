@@ -85,7 +85,7 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
      */
     public void triggerRadioOnAndListen(RadioOnStateListener.Callback callback,
             boolean forEmergencyCall, Phone phoneForEmergencyCall, boolean isTestEmergencyNumber,
-            int emergencyTimeoutIntervalMillis) {
+            int emergencyTimeoutIntervalMillis, boolean forNormalRoutingEmergencyCall) {
         setupListeners();
         mCallback = callback;
         mInProgressListeners.clear();
@@ -102,7 +102,8 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
             mListeners.get(i).waitForRadioOn(phone, this, forEmergencyCall, forEmergencyCall
                     && phone == phoneForEmergencyCall, timeoutCallbackInterval);
         }
-        powerOnRadio(forEmergencyCall, phoneForEmergencyCall, isTestEmergencyNumber);
+        powerOnRadio(forEmergencyCall, phoneForEmergencyCall, isTestEmergencyNumber,
+                forNormalRoutingEmergencyCall);
         if (SatelliteController.getInstance().isSatelliteEnabled()) {
             powerOffSatellite(phoneForEmergencyCall);
         }
@@ -113,17 +114,25 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
      * get an onServiceStateChanged() callback when the radio successfully comes up.
      */
     private void powerOnRadio(boolean forEmergencyCall, Phone phoneForEmergencyCall,
-            boolean isTestEmergencyNumber) {
+            boolean isTestEmergencyNumber, boolean forNormalRoutingEmergencyCall) {
 
         // Always try to turn on the radio here independent of APM setting - if we got here in the
         // first place, the radio is off independent of APM setting.
         for (Phone phone : PhoneFactory.getPhones()) {
             Rlog.d(TAG, "powerOnRadio, enabling Radio");
             if (isTestEmergencyNumber) {
-                phone.setRadioPowerOnForTestEmergencyCall(phone == phoneForEmergencyCall);
+                phone.setRadioPowerOnForTestEmergencyCall(
+                        (phone == phoneForEmergencyCall) && !forNormalRoutingEmergencyCall);
             } else {
-                phone.setRadioPower(true, forEmergencyCall, phone == phoneForEmergencyCall,
-                        false);
+                if (forNormalRoutingEmergencyCall) {
+                    if (phone.getServiceStateTracker() != null) {
+                        // Clear all radio off reasons to ensure that the radio is turned on for
+                        // normal routing emergency call.
+                        phone.getServiceStateTracker().clearAllRadioOffReasons();
+                    }
+                }
+                phone.setRadioPower(true, forEmergencyCall && !forNormalRoutingEmergencyCall,
+                        (phone == phoneForEmergencyCall) && !forNormalRoutingEmergencyCall, false);
             }
         }
 

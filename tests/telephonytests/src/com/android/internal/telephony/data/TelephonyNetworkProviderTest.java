@@ -284,7 +284,7 @@ public class TelephonyNetworkProviderTest extends TelephonyTest {
         NetworkCapabilities caps = capsCaptor.getValue();
 
         TelephonyNetworkRequest.getAllSupportedNetworkCapabilities().forEach(
-                (cap) -> assertThat(caps.hasCapability(cap)));
+                (cap) -> assertThat(caps.hasCapability(cap)).isTrue());
         assertThat(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_IA)).isTrue();
         assertThat(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_MMTEL)).isTrue();
         assertThat(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
