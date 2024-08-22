@@ -125,7 +125,9 @@ import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.SatelliteManager.SatelliteException;
+import android.telephony.satellite.SatelliteModemEnableRequestAttributes;
 import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
+import android.telephony.satellite.SatelliteSubscriptionInfo;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.util.Pair;
@@ -3043,8 +3045,8 @@ public class SatelliteControllerTest extends TelephonyTest {
         List<String> barredPlmnList = new ArrayList<>();
         mSatelliteControllerUT.onSatelliteEntitlementStatusUpdated(SUB_ID, false,
                 entitlementPlmnList, barredPlmnList, mIIntegerConsumer);
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
 
         // If the entitlement plmn list and the overlay config plmn list are available and the
         // carrier plmn list and the barred plmn list are empty, verify passing to the modem.
@@ -3101,32 +3103,32 @@ public class SatelliteControllerTest extends TelephonyTest {
         entitlementPlmnList = Arrays.stream(new String[]{"00101", "00102", ""}).toList();
         mSatelliteControllerUT.onSatelliteEntitlementStatusUpdated(SUB_ID, false,
                 entitlementPlmnList, barredPlmnList, mIIntegerConsumer);
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
 
         // If the entitlement plmn list is invalid, verify not passing to the modem.
         reset(mMockSatelliteModemInterface);
         entitlementPlmnList = Arrays.stream(new String[]{"00101", "00102", "123456789"}).toList();
         mSatelliteControllerUT.onSatelliteEntitlementStatusUpdated(SUB_ID, false,
                 entitlementPlmnList, barredPlmnList, mIIntegerConsumer);
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
 
         // If the entitlement plmn list is invalid, verify not passing to the modem.
         reset(mMockSatelliteModemInterface);
         entitlementPlmnList = Arrays.stream(new String[]{"00101", "00102", "12"}).toList();
         mSatelliteControllerUT.onSatelliteEntitlementStatusUpdated(SUB_ID, false,
                 entitlementPlmnList, barredPlmnList, mIIntegerConsumer);
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
 
         // If the entitlement plmn list is invalid, verify not passing to the modem.
         reset(mMockSatelliteModemInterface);
         entitlementPlmnList = Arrays.stream(new String[]{"00101", "00102", "1234"}).toList();
         mSatelliteControllerUT.onSatelliteEntitlementStatusUpdated(SUB_ID, false,
                 entitlementPlmnList, barredPlmnList, mIIntegerConsumer);
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
     }
 
     private void verifyPassingToModemAfterQueryCompleted(List<String> entitlementPlmnList,
@@ -3537,23 +3539,31 @@ public class SatelliteControllerTest extends TelephonyTest {
         verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
 
         // Time out to enable satellite
+        ArgumentCaptor<SatelliteModemEnableRequestAttributes> enableSatelliteRequest =
+                ArgumentCaptor.forClass(SatelliteModemEnableRequestAttributes.class);
         ArgumentCaptor<Message> enableSatelliteResponse = ArgumentCaptor.forClass(Message.class);
         mIIntegerConsumerResults.clear();
         setUpNoResponseForRequestSatelliteEnabled(true, false, false);
+        clearInvocations(mMockSatelliteModemInterface);
         mSatelliteControllerUT.requestSatelliteEnabled(SUB_ID, true, false, false,
                 mIIntegerConsumer);
         processAllMessages();
         assertFalse(waitForIIntegerConsumerResult(1));
-        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(eq(true), eq(false), eq(false),
+        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(
+                enableSatelliteRequest.capture(),
                 enableSatelliteResponse.capture());
+        SatelliteModemEnableRequestAttributes request = enableSatelliteRequest.getValue();
+        assertTrue(request.isEnabled());
+        assertFalse(request.isDemoMode());
+        assertFalse(request.isEmergencyMode());
 
         clearInvocations(mMockSatelliteModemInterface);
         moveTimeForward(TEST_WAIT_FOR_SATELLITE_ENABLING_RESPONSE_TIMEOUT_MILLIS);
         processAllMessages();
         assertTrue(waitForIIntegerConsumerResult(1));
         assertEquals(SATELLITE_RESULT_MODEM_TIMEOUT, (long) mIIntegerConsumerResults.get(0));
-        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(eq(false), eq(false),
-                eq(false), any(Message.class));
+        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
         verifySatelliteEnabled(false, SATELLITE_RESULT_SUCCESS);
 
         // Send the response for the above request to enable satellite. SatelliteController should
@@ -3583,8 +3593,8 @@ public class SatelliteControllerTest extends TelephonyTest {
                 mIIntegerConsumer);
         processAllMessages();
         assertFalse(waitForIIntegerConsumerResult(1));
-        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(eq(false), eq(false),
-                eq(false),
+        verify(mMockSatelliteModemInterface).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class),
                 disableSatelliteResponse.capture());
 
         clearInvocations(mMockSatelliteModemInterface);
@@ -3592,8 +3602,8 @@ public class SatelliteControllerTest extends TelephonyTest {
         processAllMessages();
         assertTrue(waitForIIntegerConsumerResult(1));
         assertEquals(SATELLITE_RESULT_MODEM_TIMEOUT, (long) mIIntegerConsumerResults.get(0));
-        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(anyBoolean(),
-                anyBoolean(), anyBoolean(), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
         // Satellite should state at enabled state since satellite disable request failed
         verifySatelliteEnabled(true, SATELLITE_RESULT_SUCCESS);
 
@@ -4204,12 +4214,12 @@ public class SatelliteControllerTest extends TelephonyTest {
             if (exception == null && !enabled) {
                 sendSatelliteModemStateChangedEvent(SATELLITE_MODEM_STATE_OFF, null);
             }
-            Message message = (Message) invocation.getArguments()[3];
+            Message message = (Message) invocation.getArguments()[1];
             AsyncResult.forMessage(message, null, exception);
             message.sendToTarget();
             return null;
         }).when(mMockSatelliteModemInterface)
-                .requestSatelliteEnabled(eq(enabled), eq(demoMode), eq(emergency),
+                .requestSatelliteEnabled(any(SatelliteModemEnableRequestAttributes.class),
                         any(Message.class));
     }
 
@@ -4229,7 +4239,10 @@ public class SatelliteControllerTest extends TelephonyTest {
     private void setUpNoResponseForRequestSatelliteEnabled(boolean enabled, boolean demoMode,
             boolean emergency) {
         doNothing().when(mMockSatelliteModemInterface)
-                .requestSatelliteEnabled(eq(enabled), eq(demoMode), eq(emergency),
+                .requestSatelliteEnabled(eq(new SatelliteModemEnableRequestAttributes(
+                                enabled, demoMode, emergency,
+                                new SatelliteSubscriptionInfo("", "")
+                        )),
                         any(Message.class));
     }
 

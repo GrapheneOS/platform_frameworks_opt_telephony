@@ -96,10 +96,14 @@ public final class LogicalChannelMocker {
         msg.sendToTarget();
     }
 
-    public static void mockCloseLogicalChannel(CommandsInterface mockCi, int channel) {
+    /**
+     * @param error can be {@code null} for a success response or an exception for a failure
+     */
+    public static void mockCloseLogicalChannel(
+            CommandsInterface mockCi, int channel, @Nullable Throwable error) {
         doAnswer((Answer<Void>) invocation -> {
             Message msg = invocation.getArgument(2);
-            AsyncResult.forMessage(msg);
+            AsyncResult.forMessage(msg, null, error);
             msg.sendToTarget();
             return null;
         }).when(mockCi).iccCloseLogicalChannel(eq(channel),

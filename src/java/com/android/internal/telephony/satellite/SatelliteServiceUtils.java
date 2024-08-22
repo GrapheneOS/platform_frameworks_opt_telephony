@@ -41,6 +41,8 @@ import android.telephony.satellite.PointingInfo;
 import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
+import android.telephony.satellite.SatelliteModemEnableRequestAttributes;
+import android.telephony.satellite.SatelliteSubscriptionInfo;
 import android.telephony.satellite.stub.NTRadioTechnology;
 import android.telephony.satellite.stub.SatelliteModemState;
 import android.telephony.satellite.stub.SatelliteResult;
@@ -254,6 +256,41 @@ public class SatelliteServiceUtils {
         android.telephony.satellite.stub.SatelliteDatagram converted =
                 new android.telephony.satellite.stub.SatelliteDatagram();
         converted.data = datagram.getSatelliteDatagram();
+        return converted;
+    }
+
+    /**
+     * Convert SatelliteSubscriptionInfo from framework definition to service definition.
+     * @param info The SatelliteSubscriptionInfo from the framework.
+     * @return The converted SatelliteSubscriptionInfo for the satellite service.
+     */
+    @NonNull public static android.telephony.satellite.stub
+            .SatelliteSubscriptionInfo toSatelliteSubscriptionInfo(
+            @NonNull SatelliteSubscriptionInfo info
+    ) {
+        android.telephony.satellite.stub.SatelliteSubscriptionInfo converted =
+                new android.telephony.satellite.stub.SatelliteSubscriptionInfo();
+        converted.iccId = info.getIccId();
+        converted.niddApn = info.getNiddApn();
+        return converted;
+    }
+
+    /**
+     * Convert SatelliteModemEnableRequestAttributes from framework definition to service definition
+     * @param attributes The SatelliteModemEnableRequestAttributes from the framework.
+     * @return The converted SatelliteModemEnableRequestAttributes for the satellite service.
+     */
+    @NonNull public static android.telephony.satellite.stub
+            .SatelliteModemEnableRequestAttributes toSatelliteModemEnableRequestAttributes(
+            @NonNull SatelliteModemEnableRequestAttributes attributes
+    ) {
+        android.telephony.satellite.stub.SatelliteModemEnableRequestAttributes converted =
+                new android.telephony.satellite.stub.SatelliteModemEnableRequestAttributes();
+        converted.isEnabled = attributes.isEnabled();
+        converted.isDemoMode = attributes.isDemoMode();
+        converted.isEmergencyMode = attributes.isEmergencyMode();
+        converted.satelliteSubscriptionInfo = toSatelliteSubscriptionInfo(
+                attributes.getSatelliteSubscriptionInfo());
         return converted;
     }
 

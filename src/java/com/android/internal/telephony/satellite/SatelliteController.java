@@ -115,8 +115,10 @@ import android.telephony.satellite.NtnSignalStrength;
 import android.telephony.satellite.SatelliteCapabilities;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
+import android.telephony.satellite.SatelliteModemEnableRequestAttributes;
 import android.telephony.satellite.SatelliteSubscriberInfo;
 import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
+import android.telephony.satellite.SatelliteSubscriptionInfo;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -3607,14 +3609,30 @@ public class SatelliteController extends Handler {
         }
 
         Message onCompleted = obtainMessage(EVENT_SET_SATELLITE_ENABLED_DONE, request);
-        mSatelliteModemInterface.requestSatelliteEnabled(argument.enableSatellite,
-                argument.enableDemoMode, argument.isEmergency, onCompleted);
+        mSatelliteModemInterface.requestSatelliteEnabled(
+                createModemEnableRequest(argument),
+                onCompleted);
         startWaitForSatelliteEnablingResponseTimer(argument);
         // Logs satellite session timestamps for session metrics
         if (argument.enableSatellite) {
             mSessionStartTimeStamp = System.currentTimeMillis();
         }
         mSessionProcessingTimeStamp = System.currentTimeMillis();
+    }
+
+    /** Get the request attributes that modem needs to enable/disable satellite */
+    private SatelliteModemEnableRequestAttributes createModemEnableRequest(
+            @NonNull RequestSatelliteEnabledArgument arg) {
+        int subId = mSubscriptionManagerService.getDefaultSubId();
+        synchronized (mSatellitePhoneLock) {
+            if (mSatellitePhone != null) subId = mSatellitePhone.getSubId();
+        }
+        SubscriptionInfo subInfo = mSubscriptionManagerService.getSubscriptionInfo(subId);
+        String iccid = subInfo != null ? subInfo.getIccId() : "";
+        String apn = getConfigForSubId(subId).getString(KEY_SATELLITE_NIDD_APN_NAME_STRING, "");
+        return new SatelliteModemEnableRequestAttributes(
+                arg.enableSatellite, arg.enableDemoMode, arg.isEmergency,
+                new SatelliteSubscriptionInfo(iccid, apn));
     }
 
     private void handleRequestSatelliteAttachRestrictionForCarrierCmd(
@@ -5705,7 +5723,7 @@ public class SatelliteController extends Handler {
                     String subscriberId = subscriberIdPair.first;
                     int carrierId = info.getCarrierId();
                     String apn = getConfigForSubId(info.getSubscriptionId())
-                            .getString(KEY_SATELLITE_NIDD_APN_NAME_STRING);
+                            .getString(KEY_SATELLITE_NIDD_APN_NAME_STRING, "");
                     logd("requestSatelliteSubscriberProvisionStatus: subscriberId:"
                             + subscriberId + " , carrierId=" + carrierId + " , apn=" + apn);
                     if (subscriberId.isEmpty()) {
