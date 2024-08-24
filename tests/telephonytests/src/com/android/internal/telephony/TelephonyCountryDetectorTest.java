@@ -51,6 +51,7 @@ import android.util.Pair;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.telephony.flags.FeatureFlags;
 
 import org.junit.After;
 import org.junit.Before;
@@ -76,6 +77,8 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
     LocaleTracker mMockLocaleTracker2;
     @Mock Location mMockLocation;
     @Mock Network mMockNetwork;
+    @Mock
+    private FeatureFlags mMockFeatureFlags;
 
     @Captor
     private ArgumentCaptor<LocationListener> mLocationListenerCaptor;
@@ -118,8 +121,9 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
 
         when(mLocationManager.getProviders(true)).thenReturn(Arrays.asList("TEST_PROVIDER"));
 
+        when(mMockFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
         mCountryDetectorUT = new TestTelephonyCountryDetector(
-                mLooper, mContext, mLocationManager, mConnectivityManager);
+                mLooper, mContext, mLocationManager, mConnectivityManager, mMockFeatureFlags);
         if (isGeoCoderImplemented()) {
             verify(mLocationManager).requestLocationUpdates(anyString(), anyLong(), anyFloat(),
                     mLocationListenerCaptor.capture());
@@ -141,8 +145,10 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
         clearInvocations(mLocationManager);
         clearInvocations(mConnectivityManager);
         when(mMockLocaleTracker.getCurrentCountry()).thenReturn("US");
-        TelephonyCountryDetector inst1 = TelephonyCountryDetector.getInstance(mContext);
-        TelephonyCountryDetector inst2 = TelephonyCountryDetector.getInstance(mContext);
+        TelephonyCountryDetector inst1 = TelephonyCountryDetector
+                .getInstance(mContext, mMockFeatureFlags);
+        TelephonyCountryDetector inst2 = TelephonyCountryDetector
+                .getInstance(mContext, mMockFeatureFlags);
         assertEquals(inst1, inst2);
         if (isGeoCoderImplemented()) {
             verify(mLocationManager, never()).requestLocationUpdates(anyString(), anyLong(),
@@ -386,8 +392,9 @@ public class TelephonyCountryDetectorTest extends TelephonyTest {
          * @param locationManager  The LocationManager instance.
          */
         TestTelephonyCountryDetector(Looper looper, Context context,
-                LocationManager locationManager, ConnectivityManager connectivityManager) {
-            super(looper, context, locationManager, connectivityManager);
+                LocationManager locationManager, ConnectivityManager connectivityManager,
+                FeatureFlags featureFlags) {
+            super(looper, context, locationManager, connectivityManager, featureFlags);
         }
 
         @Override

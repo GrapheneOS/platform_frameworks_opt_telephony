@@ -570,7 +570,7 @@ public class SatelliteController extends Handler {
         // to the satellite service and HAL interface.
         mSatelliteModemInterface = SatelliteModemInterface.make(
                 mContext, this, mFeatureFlags);
-        mCountryDetector = TelephonyCountryDetector.getInstance(context);
+        mCountryDetector = TelephonyCountryDetector.getInstance(context, mFeatureFlags);
         mCountryDetector.registerForWifiConnectivityStateChanged(this,
                 EVENT_WIFI_CONNECTIVITY_STATE_CHANGED, null);
         mTelecomManager = mContext.getSystemService(TelecomManager.class);
