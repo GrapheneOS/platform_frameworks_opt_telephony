@@ -239,8 +239,8 @@ public class SatelliteController extends Handler {
     private static final int EVENT_SATELLITE_SUPPORTED_STATE_CHANGED = 41;
     private static final int EVENT_NOTIFY_NTN_HYSTERESIS_TIMED_OUT = 42;
     private static final int EVENT_EVALUATE_ESOS_PROFILES_PRIORITIZATION = 43;
-    private static final int CMD_PROVISION_SATELLITE_TOKEN_UPDATED = 44;
-    private static final int EVENT_PROVISION_SATELLITE_TOKEN_UPDATED = 45;
+    private static final int CMD_UPDATE_PROVISION_SATELLITE_TOKEN = 44;
+    private static final int EVENT_UPDATE_PROVISION_SATELLITE_TOKEN_DONE = 45;
     private static final int EVENT_NOTIFY_NTN_ELIGIBILITY_HYSTERESIS_TIMED_OUT = 46;
     private static final int EVENT_WIFI_CONNECTIVITY_STATE_CHANGED = 47;
     private static final int EVENT_SATELLITE_ACCESS_RESTRICTION_CHECKING_RESULT = 48;
@@ -512,6 +512,9 @@ public class SatelliteController extends Handler {
 
     // Variable for backup and restore device's screen rotation settings.
     private String mDeviceRotationLockToBackupAndRestore = null;
+    // This is used for testing only. Context#getSystemService is a final API and cannot be
+    // mocked. Using this to inject a mock SubscriptionManager to work around this limitation.
+    private SubscriptionManager mInjectSubscriptionManager = null;
 
     private final Object mIsWifiConnectedLock = new Object();
     @GuardedBy("mIsWifiConnectedLock")
@@ -1578,45 +1581,44 @@ public class SatelliteController extends Handler {
                 break;
             }
 
-            case CMD_PROVISION_SATELLITE_TOKEN_UPDATED: {
+            case CMD_UPDATE_PROVISION_SATELLITE_TOKEN: {
                 request = (SatelliteControllerHandlerRequest) msg.obj;
                 RequestProvisionSatelliteArgument argument =
                         (RequestProvisionSatelliteArgument) request.argument;
-                onCompleted = obtainMessage(EVENT_PROVISION_SATELLITE_TOKEN_UPDATED, request);
+                onCompleted = obtainMessage(EVENT_UPDATE_PROVISION_SATELLITE_TOKEN_DONE, request);
                 // only pass to index 0.
                 // TODO: Select the subscription with highest priority and set it to mSatelliteSubId
                 int subId = -1;
                 synchronized (mSatelliteTokenProvisionedLock) {
                     subId = mSubscriberIdPerSub.getOrDefault(
                             argument.mSatelliteSubscriberInfoList.get(0).getSubscriberId(), -1);
-                    for (SatelliteSubscriberInfo subscriberInfo :
-                            argument.mSatelliteSubscriberInfoList) {
-                        mProvisionedSubscriberId.put(subscriberInfo.getSubscriberId(), true);
-                    }
                 }
                 setSatellitePhone(subId);
                 String iccId = mSubscriptionManagerService.getSubscriptionInfo(subId).getIccId();
                 argument.setIccId(iccId);
+                boolean sendResponse = false;
                 synchronized (mSatelliteTokenProvisionedLock) {
                     if (!iccId.equals(mLastConfiguredIccId)) {
                         logd("updateSatelliteSubscription subId=" + subId + ", iccId=" + iccId
                                 + " to modem");
                         mSatelliteModemInterface.updateSatelliteSubscription(iccId, onCompleted);
+                    } else {
+                        sendResponse = true;
                     }
                 }
-                Consumer<Integer> result = new Consumer<Integer>() {
-                    @Override
-                    public void accept(Integer integer) {
-                        logd("invoke CMD_PROVISION_SATELLITE_TOKEN_UPDATED done.");
-                    }
-                };
-                ProvisionSatelliteServiceArgument internalArgument =
-                        new ProvisionSatelliteServiceArgument(iccId, null, result, subId);
-                sendRequestAsync(CMD_PROVISION_SATELLITE_SERVICE, internalArgument, null);
+                handleEventSatelliteSubscriptionProvisionStateChanged(
+                        argument.mSatelliteSubscriberInfoList, true);
+                if (sendResponse) {
+                    // The response is sent immediately because the ICCID has already been
+                    // delivered to the modem.
+                    Bundle bundle = new Bundle();
+                    bundle.putBoolean(SatelliteManager.KEY_PROVISION_SATELLITE_TOKENS, true);
+                    argument.mResult.send(SATELLITE_RESULT_SUCCESS, bundle);
+                }
                 break;
             }
 
-            case EVENT_PROVISION_SATELLITE_TOKEN_UPDATED: {
+            case EVENT_UPDATE_PROVISION_SATELLITE_TOKEN_DONE: {
                 ar = (AsyncResult) msg.obj;
                 request = (SatelliteControllerHandlerRequest) ar.userObj;
                 RequestProvisionSatelliteArgument argument =
@@ -3790,6 +3792,48 @@ public class SatelliteController extends Handler {
         });
     }
 
+    private void handleEventSatelliteSubscriptionProvisionStateChanged(
+            List<SatelliteSubscriberInfo> newList, boolean provisioned) {
+        logd("handleEventSatelliteSubscriptionProvisionStateChanged: newList=" + newList
+                + " , provisioned=" + provisioned);
+        boolean provisionChanged = false;
+        synchronized (mSatelliteTokenProvisionedLock) {
+            for (SatelliteSubscriberInfo subscriberInfo : newList) {
+                if (mProvisionedSubscriberId.getOrDefault(subscriberInfo.getSubscriberId(), false)
+                        == provisioned) {
+                    continue;
+                }
+                provisionChanged = true;
+                mProvisionedSubscriberId.put(subscriberInfo.getSubscriberId(), provisioned);
+            }
+        }
+        if (!provisionChanged) {
+            logd("handleEventSatelliteSubscriptionProvisionStateChanged: provision state nothing "
+                    + "changed.");
+            return;
+        }
+        List<SatelliteSubscriberProvisionStatus> informList =
+                getPrioritizedSatelliteSubscriberProvisionStatusList();
+        plogd("handleEventSatelliteSubscriptionProvisionStateChanged: " + informList);
+        notifySatelliteSubscriptionProvisionStateChanged(informList);
+    }
+
+    private void notifySatelliteSubscriptionProvisionStateChanged(
+            @NonNull List<SatelliteSubscriberProvisionStatus> list) {
+        List<ISatelliteProvisionStateCallback> deadCallersList = new ArrayList<>();
+        mSatelliteProvisionStateChangedListeners.values().forEach(listener -> {
+            try {
+                listener.onSatelliteSubscriptionProvisionStateChanged(list);
+            } catch (RemoteException e) {
+                plogd("notifySatelliteSubscriptionProvisionStateChanged: " + e);
+                deadCallersList.add(listener);
+            }
+        });
+        deadCallersList.forEach(listener -> {
+            mSatelliteProvisionStateChangedListeners.remove(listener.asBinder());
+        });
+    }
+
     private void handleEventSatelliteModemStateChanged(
             @SatelliteManager.SatelliteModemState int state) {
         plogd("handleEventSatelliteModemStateChanged: state=" + state);
@@ -5639,6 +5683,10 @@ public class SatelliteController extends Handler {
                 subId);
         SubscriptionManager subscriptionManager = mContext.getSystemService(
                 SubscriptionManager.class);
+        if (mInjectSubscriptionManager != null) {
+            logd("getPhoneNumberBasedCarrier: InjectSubscriptionManager");
+            subscriptionManager = mInjectSubscriptionManager;
+        }
         String phoneNumber = subscriptionManager.getPhoneNumber(subId);
         if (phoneNumber == null) {
             logd("getPhoneNumberBasedCarrier: phoneNumber null");
@@ -5707,15 +5755,23 @@ public class SatelliteController extends Handler {
             result.send(SATELLITE_RESULT_REQUEST_NOT_SUPPORTED, null);
             return;
         }
+        List<SatelliteSubscriberProvisionStatus> list =
+                getPrioritizedSatelliteSubscriberProvisionStatusList();
+        logd("requestSatelliteSubscriberProvisionStatus: " + list);
+        final Bundle bundle = new Bundle();
+        bundle.putParcelableList(SatelliteManager.KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN, list);
+        result.send(SATELLITE_RESULT_SUCCESS, bundle);
+    }
 
+    private List<SatelliteSubscriberProvisionStatus>
+            getPrioritizedSatelliteSubscriberProvisionStatusList() {
         List<SatelliteSubscriberProvisionStatus> list = new ArrayList<>();
         synchronized (mSatelliteTokenProvisionedLock) {
-            mSubscriberIdPerSub = new HashMap<>();
             for (int priority : mSubsInfoListPerPriority.keySet()) {
                 List<SubscriptionInfo> infoList = mSubsInfoListPerPriority.get(priority);
                 if (infoList == null) {
-                    logd("requestSatelliteSubscriberProvisionStatus: no exist this priority "
-                            + priority);
+                    logd("getPrioritySatelliteSubscriberProvisionStatusList: no exist this "
+                            + "priority " + priority);
                     continue;
                 }
                 for (SubscriptionInfo info : infoList) {
@@ -5724,10 +5780,10 @@ public class SatelliteController extends Handler {
                     int carrierId = info.getCarrierId();
                     String apn = getConfigForSubId(info.getSubscriptionId())
                             .getString(KEY_SATELLITE_NIDD_APN_NAME_STRING, "");
-                    logd("requestSatelliteSubscriberProvisionStatus: subscriberId:"
+                    logd("getPrioritySatelliteSubscriberProvisionStatusList: subscriberId:"
                             + subscriberId + " , carrierId=" + carrierId + " , apn=" + apn);
                     if (subscriberId.isEmpty()) {
-                        logd("requestSatelliteSubscriberProvisionStatus: getSubscriberId "
+                        logd("getPrioritySatelliteSubscriberProvisionStatusList: getSubscriberId "
                                 + "failed skip this subscriberId.");
                         continue;
                     }
@@ -5737,10 +5793,11 @@ public class SatelliteController extends Handler {
                                     .setSubId(info.getSubscriptionId())
                                     .setSubscriberIdType(subscriberIdPair.second)
                                     .build();
-                    boolean provisioned = mProvisionedSubscriberId.getOrDefault(
-                            subscriberId, false);
-                    logd("requestSatelliteSubscriberProvisionStatus: satelliteSubscriberInfo="
-                            + satelliteSubscriberInfo + ", provisioned=" + provisioned);
+                    boolean provisioned = mProvisionedSubscriberId.getOrDefault(subscriberId,
+                            false);
+                    logd("getPrioritySatelliteSubscriberProvisionStatusList: "
+                            + "satelliteSubscriberInfo=" + satelliteSubscriberInfo
+                            + ", provisioned=" + provisioned);
                     list.add(new SatelliteSubscriberProvisionStatus.Builder()
                             .setSatelliteSubscriberInfo(satelliteSubscriberInfo)
                             .setProvisionStatus(provisioned).build());
@@ -5748,11 +5805,7 @@ public class SatelliteController extends Handler {
                 }
             }
         }
-
-        logd("requestSatelliteSubscriberProvisionStatus: " + list);
-        final Bundle bundle = new Bundle();
-        bundle.putParcelableList(SatelliteManager.KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN, list);
-        result.send(SATELLITE_RESULT_SUCCESS, bundle);
+        return list;
     }
 
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
@@ -5795,7 +5848,7 @@ public class SatelliteController extends Handler {
         logd("provisionSatellite:" + list);
         RequestProvisionSatelliteArgument request = new RequestProvisionSatelliteArgument(list,
                 result);
-        sendRequestAsync(CMD_PROVISION_SATELLITE_TOKEN_UPDATED, request, null);
+        sendRequestAsync(CMD_UPDATE_PROVISION_SATELLITE_TOKEN, request, null);
     }
 
 

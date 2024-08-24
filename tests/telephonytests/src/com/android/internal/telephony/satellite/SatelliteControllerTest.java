@@ -21,6 +21,8 @@ import static android.telephony.CarrierConfigManager.KEY_CARRIER_SUPPORTED_SATEL
 import static android.telephony.CarrierConfigManager.KEY_EMERGENCY_CALL_TO_SATELLITE_T911_HANDOVER_TIMEOUT_MILLIS_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_NIDD_APN_NAME_STRING;
 import static android.telephony.NetworkRegistrationInfo.SERVICE_TYPE_DATA;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
 import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_GOOD;
@@ -30,6 +32,8 @@ import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_
 import static android.telephony.satellite.SatelliteManager.KEY_DEMO_MODE_ENABLED;
 import static android.telephony.satellite.SatelliteManager.KEY_EMERGENCY_MODE_ENABLED;
 import static android.telephony.satellite.SatelliteManager.KEY_NTN_SIGNAL_STRENGTH;
+import static android.telephony.satellite.SatelliteManager.KEY_PROVISION_SATELLITE_TOKENS;
+import static android.telephony.satellite.SatelliteManager.KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN;
 import static android.telephony.satellite.SatelliteManager.KEY_SATELLITE_CAPABILITIES;
 import static android.telephony.satellite.SatelliteManager.KEY_SATELLITE_COMMUNICATION_ALLOWED;
 import static android.telephony.satellite.SatelliteManager.KEY_SATELLITE_ENABLED;
@@ -96,6 +100,7 @@ import android.annotation.Nullable;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -113,6 +118,8 @@ import android.telephony.CellSignalStrength;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.satellite.INtnSignalStrengthCallback;
 import android.telephony.satellite.ISatelliteCapabilitiesCallback;
 import android.telephony.satellite.ISatelliteDatagramCallback;
@@ -126,6 +133,7 @@ import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
 import android.telephony.satellite.SatelliteManager.SatelliteException;
 import android.telephony.satellite.SatelliteModemEnableRequestAttributes;
+import android.telephony.satellite.SatelliteSubscriberInfo;
 import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
 import android.telephony.satellite.SatelliteSubscriptionInfo;
 import android.testing.AndroidTestingRunner;
@@ -146,6 +154,7 @@ import com.android.internal.telephony.flags.FeatureFlags;
 import com.android.internal.telephony.satellite.metrics.ControllerMetricsStats;
 import com.android.internal.telephony.satellite.metrics.ProvisionMetricsStats;
 import com.android.internal.telephony.satellite.metrics.SessionMetricsStats;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.subscription.SubscriptionManagerService;
 
 import org.junit.After;
@@ -157,6 +166,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -216,6 +226,9 @@ public class SatelliteControllerTest extends TelephonyTest {
     @Mock private CellSignalStrength mCellSignalStrength;
     @Mock private SatelliteConfig mMockConfig;
     @Mock private DemoSimulator mMockDemoSimulator;
+    @Mock private Resources mResources;
+    @Mock private SubscriptionManager mSubscriptionManager;
+    @Mock private SubscriptionInfo mSubscriptionInfo;
 
     private Semaphore mIIntegerConsumerSemaphore = new Semaphore(0);
     private IIntegerConsumer mIIntegerConsumer = new IIntegerConsumer.Stub() {
@@ -244,6 +257,17 @@ public class SatelliteControllerTest extends TelephonyTest {
     private SatelliteCapabilities mEmptySatelliteCapabilities = new SatelliteCapabilities(
             new HashSet<>(), mIsPointingRequired, MAX_BYTES_PER_OUT_GOING_DATAGRAM,
             new HashMap<>());
+    final int mCarrierId = 0;
+    final String mImsi = "1234567890123";
+    final String mNiddApn = "testApn";
+    final String mMsisdn = "0987654321";
+    final String mSubscriberId = mImsi.substring(0, 6) + mMsisdn;
+    final String mIccId = "1000000000000001";
+    final String mIccId2 = "2000000000000002";
+    final String mImsi2 = "2345678901234";
+    final String mMsisdn2 = "9876543210";
+    final String mSubscriberId2 = mIccId2;
+
     private Semaphore mSatelliteCapabilitiesSemaphore = new Semaphore(0);
     private SatelliteCapabilities mQueriedSatelliteCapabilities = null;
     private int mQueriedSatelliteCapabilitiesResultCode = SATELLITE_RESULT_SUCCESS;
@@ -600,6 +624,9 @@ public class SatelliteControllerTest extends TelephonyTest {
 
         doReturn(mMockConfigParser).when(mMockTelephonyConfigUpdateInstallReceiver)
                 .getConfigParser(ConfigProviderAdaptor.DOMAIN_SATELLITE);
+        doReturn(mSubscriptionInfo).when(mMockSubscriptionManagerService).getSubscriptionInfo(
+                anyInt());
+        doReturn("").when(mSubscriptionInfo).getIccId();
     }
 
     @After
@@ -4085,6 +4112,264 @@ public class SatelliteControllerTest extends TelephonyTest {
                 eq(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)))
                 .thenReturn(List.of(nri));
         assertFalse(mSatelliteControllerUT.getWwanIsInService(mServiceState));
+    }
+
+    private boolean mProvisionState = false;
+    private int mProvisionSateResultCode = -1;
+    private Semaphore mProvisionSateSemaphore = new Semaphore(0);
+    private ResultReceiver mProvisionSatelliteReceiver = new ResultReceiver(null) {
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            mProvisionSateResultCode = resultCode;
+            logd("mProvisionSatelliteReceiver: resultCode=" + resultCode);
+            if (resultCode == SATELLITE_RESULT_SUCCESS) {
+                if (resultData.containsKey(KEY_PROVISION_SATELLITE_TOKENS)) {
+                    mProvisionState = resultData.getBoolean(KEY_PROVISION_SATELLITE_TOKENS);
+                    logd("mProvisionSatelliteReceiver: mProvisionState=" + mProvisionState);
+                } else {
+                    loge("KEY_PROVISION_SATELLITE_TOKENS does not exist.");
+                    mProvisionState = false;
+                }
+            } else {
+                mProvisionState = false;
+            }
+            try {
+                mProvisionSateSemaphore.release();
+            } catch (Exception ex) {
+                loge("mProvisionSatelliteReceiver: Got exception in releasing semaphore, ex=" + ex);
+            }
+        }
+    };
+
+    private List<SatelliteSubscriberProvisionStatus>
+            mRequestSatelliteSubscriberProvisionStatusResultList = new ArrayList<>();
+    private int mRequestSatelliteSubscriberProvisionStatusResultCode = SATELLITE_RESULT_SUCCESS;
+    private Semaphore mRequestSatelliteSubscriberProvisionStatusSemaphore = new Semaphore(0);
+    private ResultReceiver mRequestSatelliteSubscriberProvisionStatusReceiver = new ResultReceiver(
+            null) {
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            mRequestSatelliteSubscriberProvisionStatusResultCode = resultCode;
+            logd("mRequestSatelliteSubscriberProvisionStatusReceiver: resultCode=" + resultCode);
+            if (resultCode == SATELLITE_RESULT_SUCCESS) {
+                if (resultData.containsKey(KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN)) {
+                    mRequestSatelliteSubscriberProvisionStatusResultList =
+                            resultData.getParcelableArrayList(
+                                    KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN,
+                                    SatelliteSubscriberProvisionStatus.class);
+                } else {
+                    loge("KEY_REQUEST_PROVISION_SUBSCRIBER_ID_TOKEN does not exist.");
+                    mRequestSatelliteSubscriberProvisionStatusResultList = new ArrayList<>();
+                }
+            } else {
+                mRequestSatelliteSubscriberProvisionStatusResultList = new ArrayList<>();
+            }
+            try {
+                mRequestSatelliteSubscriberProvisionStatusSemaphore.release();
+            } catch (Exception ex) {
+                loge("mRequestSatelliteSubscriberProvisionStatusReceiver: Got exception in "
+                        + "releasing "
+                        + "semaphore, ex=" + ex);
+            }
+        }
+    };
+
+    @Test
+    public void testRequestSatelliteSubscriberProvisionStatus() throws Exception {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+        when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        verifyRequestSatelliteSubscriberProvisionStatus();
+    }
+
+    private void verifyRequestSatelliteSubscriberProvisionStatus() throws Exception {
+        setSatelliteSubscriberTesting();
+        List<SatelliteSubscriberInfo> list = getExpectedSatelliteSubscriberInfoList();
+        mCarrierConfigBundle.putString(KEY_SATELLITE_NIDD_APN_NAME_STRING, mNiddApn);
+        mCarrierConfigBundle.putBoolean(KEY_SATELLITE_ESOS_SUPPORTED_BOOL, true);
+        for (Pair<Executor, CarrierConfigManager.CarrierConfigChangeListener> pair
+                : mCarrierConfigChangedListenerList) {
+            pair.first.execute(() -> pair.second.onCarrierConfigChanged(
+                    /*slotIndex*/ 0, /*subId*/ SUB_ID, /*carrierId*/ 0, /*specificCarrierId*/ 0)
+            );
+        }
+        moveTimeForward(TimeUnit.MINUTES.toMillis(1));
+        processAllMessages();
+
+        // Verify that calling requestSatelliteSubscriberProvisionStatus returns the expected
+        // list of SatelliteSubscriberProvisionStatus.
+        mSatelliteControllerUT.requestSatelliteSubscriberProvisionStatus(
+                mRequestSatelliteSubscriberProvisionStatusReceiver);
+        moveTimeForward(TimeUnit.MINUTES.toMillis(1));
+        processAllMessages();
+        assertEquals(SATELLITE_RESULT_SUCCESS,
+                mRequestSatelliteSubscriberProvisionStatusResultCode);
+        assertEquals(list.get(0), mRequestSatelliteSubscriberProvisionStatusResultList.get(
+                0).getSatelliteSubscriberInfo());
+    }
+
+    @Test
+    public void testProvisionSatellite() throws Exception {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+        when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+        verifyRequestSatelliteSubscriberProvisionStatus();
+        List<SatelliteSubscriberInfo> inputList = getExpectedSatelliteSubscriberInfoList();
+        verifyProvisionSatellite(inputList);
+    }
+
+    private void verifyProvisionSatellite(List<SatelliteSubscriberInfo> inputList) {
+        doAnswer(invocation -> {
+            Message message = (Message) invocation.getArguments()[1];
+            AsyncResult.forMessage(message, null, new SatelliteException(SATELLITE_RESULT_SUCCESS));
+            message.sendToTarget();
+            return null;
+        }).when(mMockSatelliteModemInterface).updateSatelliteSubscription(anyString(), any());
+
+        mSatelliteControllerUT.provisionSatellite(inputList, mProvisionSatelliteReceiver);
+        processAllMessages();
+        assertEquals(SATELLITE_RESULT_SUCCESS, mProvisionSateResultCode);
+        assertTrue(mProvisionState);
+    }
+
+
+    @Test
+    public void testRegisterForSatelliteSubscriptionProvisionStateChanged() throws Exception {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+        when(mFeatureFlags.oemEnabledSatelliteFlag()).thenReturn(true);
+
+        Semaphore semaphore = new Semaphore(0);
+        SatelliteSubscriberProvisionStatus[] resultArray =
+                new SatelliteSubscriberProvisionStatus[2];
+        ISatelliteProvisionStateCallback callback = new ISatelliteProvisionStateCallback.Stub() {
+            @Override
+            public void onSatelliteProvisionStateChanged(boolean provisioned) {
+                logd("onSatelliteProvisionStateChanged: provisioned=" + provisioned);
+            }
+
+            @Override
+            public void onSatelliteSubscriptionProvisionStateChanged(
+                    List<SatelliteSubscriberProvisionStatus> satelliteSubscriberProvisionStatus) {
+                logd("onSatelliteSubscriptionProvisionStateChanged: "
+                        + satelliteSubscriberProvisionStatus);
+                for (int i = 0; i < satelliteSubscriberProvisionStatus.size(); i++) {
+                    resultArray[i] = satelliteSubscriberProvisionStatus.get(i);
+                }
+                try {
+                    semaphore.release();
+                } catch (Exception ex) {
+                    loge("onSatelliteSubscriptionProvisionStateChanged: Got exception in releasing "
+                            + "semaphore, ex=" + ex);
+                }
+            }
+        };
+        setUpResponseForRequestIsSatelliteSupported(true, SATELLITE_RESULT_SUCCESS);
+        verifySatelliteSupported(true, SATELLITE_RESULT_SUCCESS);
+        int errorCode = mSatelliteControllerUT.registerForSatelliteProvisionStateChanged(SUB_ID,
+                callback);
+        processAllMessages();
+        assertEquals(SATELLITE_RESULT_SUCCESS, errorCode);
+
+        verifyRequestSatelliteSubscriberProvisionStatus();
+
+        // Verify that onSatelliteSubscriptionProvisionStateChanged is called when requesting
+        // provisioning for the first time.
+        List<SatelliteSubscriberInfo> list = getExpectedSatelliteSubscriberInfoList();
+        List<SatelliteSubscriberInfo> inputList = new ArrayList<>();
+        inputList.add(list.get(0));
+        verifyProvisionSatellite(inputList);
+
+        verify(mMockSatelliteModemInterface, times(1)).updateSatelliteSubscription(anyString(),
+                any());
+        assertTrue(waitForForEvents(
+                semaphore, 1, "testRegisterForSatelliteSubscriptionProvisionStateChanged"));
+        assertTrue(resultArray[0].getProvisionStatus());
+        assertEquals(mSubscriberId, resultArray[0].getSatelliteSubscriberInfo().getSubscriberId());
+
+        // Request provisioning with SatelliteSubscriberInfo that has not been provisioned
+        // before, and verify that onSatelliteSubscriptionProvisionStateChanged is called.
+        inputList = new ArrayList<>();
+        inputList.add(list.get(1));
+        verifyProvisionSatellite(inputList);
+
+        verify(mMockSatelliteModemInterface, times(2)).updateSatelliteSubscription(anyString(),
+                any());
+        assertTrue(waitForForEvents(
+                semaphore, 1, "testRegisterForSatelliteSubscriptionProvisionStateChanged"));
+        assertTrue(resultArray[1].getProvisionStatus());
+        assertEquals(mSubscriberId2, resultArray[1].getSatelliteSubscriberInfo().getSubscriberId());
+
+        // Request provisioning with the same SatelliteSubscriberInfo that was previously
+        // requested, and verify that onSatelliteSubscriptionProvisionStateChanged is not called.
+        verifyProvisionSatellite(inputList);
+
+        verify(mMockSatelliteModemInterface, times(2)).updateSatelliteSubscription(anyString(),
+                any());
+        assertFalse(waitForForEvents(
+                semaphore, 1, "testRegisterForSatelliteSubscriptionProvisionStateChanged"));
+    }
+
+    private void setSatelliteSubscriberTesting() throws Exception {
+        doReturn("123").when(mContext).getAttributionTag();
+        final int carrierId = 0;
+        SubscriptionInfo subscriptionInfo = new SubscriptionInfo.Builder()
+                .setId(SUB_ID).setIccId(mIccId).setSimSlotIndex(0).setOnlyNonTerrestrialNetwork(
+                        false).setSatelliteESOSSupported(true).setCarrierId(carrierId).build();
+        SubscriptionInfo subscriptionInfo2 = new SubscriptionInfo.Builder()
+                .setId(SUB_ID1).setIccId(mIccId2).setSimSlotIndex(1).setOnlyNonTerrestrialNetwork(
+                        true).setSatelliteESOSSupported(false).setCarrierId(carrierId).build();
+        List<SubscriptionInfo> allSubInfos = new ArrayList<>();
+        allSubInfos.add(subscriptionInfo);
+        allSubInfos.add(subscriptionInfo2);
+        doReturn(allSubInfos).when(mMockSubscriptionManagerService).getAllSubInfoList(
+                anyString(), anyString());
+        SubscriptionInfoInternal subInfoInternal =
+                new SubscriptionInfoInternal.Builder().setCarrierId(0).setImsi(mImsi).setIccId(
+                        mIccId).build();
+        SubscriptionInfoInternal subInfoInternal2 =
+                new SubscriptionInfoInternal.Builder().setCarrierId(0).setImsi(mImsi2).setIccId(
+                        mIccId2).build();
+        doReturn(subscriptionInfo).when(mMockSubscriptionManagerService).getSubscriptionInfo(
+                eq(SUB_ID));
+        doReturn(subscriptionInfo2).when(mMockSubscriptionManagerService).getSubscriptionInfo(
+                eq(SUB_ID1));
+        Field field = SatelliteController.class.getDeclaredField("mInjectSubscriptionManager");
+        field.setAccessible(true);
+        field.set(mSatelliteControllerUT, mSubscriptionManager);
+        doReturn(mMsisdn).when(mSubscriptionManager).getPhoneNumber(eq(SUB_ID));
+        doReturn(mMsisdn2).when(mSubscriptionManager).getPhoneNumber(eq(SUB_ID1));
+        Field provisionedSubscriberIdField = SatelliteController.class.getDeclaredField(
+                "mProvisionedSubscriberId");
+        provisionedSubscriberIdField.setAccessible(true);
+        provisionedSubscriberIdField.set(mSatelliteControllerUT, new HashMap<>());
+        Field subscriberIdPerSubField = SatelliteController.class.getDeclaredField(
+                "mSubscriberIdPerSub");
+        subscriberIdPerSubField.setAccessible(true);
+        subscriberIdPerSubField.set(mSatelliteControllerUT, new HashMap<>());
+        Field lastConfiguredIccIdField = SatelliteController.class.getDeclaredField(
+                "mLastConfiguredIccId");
+        lastConfiguredIccIdField.setAccessible(true);
+        lastConfiguredIccIdField.set(mSatelliteControllerUT, null);
+        doReturn(subInfoInternal).when(mMockSubscriptionManagerService).getSubscriptionInfoInternal(
+                eq(SUB_ID));
+        doReturn(subInfoInternal2).when(
+                mMockSubscriptionManagerService).getSubscriptionInfoInternal(eq(SUB_ID1));
+        doReturn(mResources).when(mContext).getResources();
+        doReturn("package").when(mResources).getString(
+                eq(R.string.config_satellite_gateway_service_package));
+        doReturn("className").when(mResources).getString(
+                eq(R.string.config_satellite_carrier_roaming_esos_provisioned_class));
+        doReturn("action").when(mResources).getString(
+                eq(R.string.config_satellite_carrier_roaming_esos_provisioned_intent_action));
+    }
+
+    private List<SatelliteSubscriberInfo> getExpectedSatelliteSubscriberInfoList() {
+        List<SatelliteSubscriberInfo> list = new ArrayList<>();
+        list.add(new SatelliteSubscriberInfo.Builder().setSubscriberId(mSubscriberId).setCarrierId(
+                mCarrierId).setNiddApn(mNiddApn).setSubId(SUB_ID).setSubscriberIdType(
+                SatelliteSubscriberInfo.IMSI_MSISDN).build());
+        list.add(new SatelliteSubscriberInfo.Builder().setSubscriberId(mSubscriberId2).setCarrierId(
+                mCarrierId).setNiddApn(mNiddApn).setSubId(SUB_ID1).setSubscriberIdType(
+                SatelliteSubscriberInfo.ICCID).build());
+        return list;
     }
 
     private void resetSatelliteControllerUTEnabledState() {
