@@ -1024,7 +1024,10 @@ public class NetworkTypeController extends StateMachine {
                     if (rat == TelephonyManager.NETWORK_TYPE_NR
                             || (isLte(rat) && isNrConnected())) {
                         if (isNrAdvanced()) {
-                            transitionTo(mNrConnectedAdvancedState);
+                            // Move into idle state because mPhysicalLinkStatus indicated idle,
+                            // ignored any advance reason because unless mPhysicalLinkStatus changed
+                            // again, shouldn't move back to advance.
+                            log("Ignore NR advanced from cached PCC/RatchetedNrBands while idle");
                         } else if (isPhysicalLinkActive()) {
                             transitionWithTimerTo(mNrConnectedState);
                         } else {

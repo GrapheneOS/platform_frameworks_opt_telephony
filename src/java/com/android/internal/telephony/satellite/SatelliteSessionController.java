@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony.satellite;
 
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_FAILED;
@@ -113,15 +115,17 @@ public class SatelliteSessionController extends StateMachine {
     private static final int EVENT_SATELLITE_ENABLEMENT_FAILED = 8;
     private static final int EVENT_SCREEN_STATE_CHANGED = 9;
     protected static final int EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT = 10;
+    protected static final int EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT = 11;
 
     private static final long REBIND_INITIAL_DELAY = 2 * 1000; // 2 seconds
     private static final long REBIND_MAXIMUM_DELAY = 64 * 1000; // 1 minute
     private static final int REBIND_MULTIPLIER = 2;
     private static final int DEFAULT_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC = 30;
+    private static final int DEFAULT_P2P_SMS_INACTIVITY_TIMEOUT_SEC = 180;
+    private static final int DEFAULT_ESOS_INACTIVITY_TIMEOUT_SEC = 600;
 
     @NonNull private final ExponentialBackoff mExponentialBackoff;
     @NonNull private final Object mLock = new Object();
-    @NonNull private final Phone mPhone;
     @Nullable
     private ISatelliteGateway mSatelliteGatewayService;
     private String mSatelliteGatewayServicePackageName = "";
@@ -155,6 +159,8 @@ public class SatelliteSessionController extends StateMachine {
     private boolean mIsDemoMode = false;
     // Interested in screen off, so use default value true
     boolean mIsScreenOn = true;
+    private boolean mIsDeviceAlignedWithSatellite = false;
+
     @GuardedBy("mLock")
     @NonNull private boolean mIsDisableCellularModemInProgress = false;
     @NonNull private final SatelliteController mSatelliteController;
@@ -256,8 +262,11 @@ public class SatelliteSessionController extends StateMachine {
             bindService();
         });
 
-        mPhone = SatelliteServiceUtils.getPhone();
-        mDeviceStateMonitor = mPhone.getDeviceStateMonitor();
+        Phone phone = mSatelliteController.getSatellitePhone();
+        if (phone == null) {
+            phone = SatelliteServiceUtils.getPhone();
+        }
+        mDeviceStateMonitor = phone.getDeviceStateMonitor();
 
         addState(mUnavailableState);
         addState(mPowerOffState);
@@ -470,6 +479,29 @@ public class SatelliteSessionController extends StateMachine {
     }
 
     /**
+     * Notify whether the device is aligned with the satellite
+     *
+     * @param isAligned {@code true} Device is aligned with the satellite,
+     *                  {@code false} otherwise.
+     */
+    public void setDeviceAlignedWithSatellite(boolean isAligned) {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            plogd("setDeviceAlignedWithSatellite: carrierRoamingNbIotNtn is disabled");
+            return;
+        }
+
+        mIsDeviceAlignedWithSatellite = isAligned;
+
+        if (mIsDeviceAlignedWithSatellite) {
+            stopCarrierRoamingNbIotInactivityTimer();
+        } else {
+            if (mCurrentState == SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED) {
+                evaluateStartingCarrierRoamingNbIotInactivityTimer();
+            }
+        }
+    }
+
+    /**
      * Get whether state machine is in enabling state.
      *
      * @return {@code true} if state machine is in enabling state and {@code false} otherwise.
@@ -485,6 +517,7 @@ public class SatelliteSessionController extends StateMachine {
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     public void cleanUpResource() {
         if (DBG) plogd("cleanUpResource");
+        mIsDeviceAlignedWithSatellite = false;
         unregisterForScreenStateChanged();
     }
 
@@ -929,11 +962,14 @@ public class SatelliteSessionController extends StateMachine {
             mCurrentState = SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED;
             notifyStateChangedEvent(SatelliteManager.SATELLITE_MODEM_STATE_NOT_CONNECTED);
             startNbIotInactivityTimer();
+            evaluateStartingCarrierRoamingNbIotInactivityTimer();
         }
 
         @Override
         public void exit() {
             if (DBG) plogd("Exiting NotConnectedState");
+
+            stopCarrierRoamingNbIotInactivityTimer();
         }
 
         @Override
@@ -947,6 +983,8 @@ public class SatelliteSessionController extends StateMachine {
                 case EVENT_SATELLITE_MODEM_STATE_CHANGED:
                     handleEventSatelliteModemStateChanged(msg.arg1);
                     break;
+                case EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT:
+                    // fall through
                 case EVENT_NB_IOT_INACTIVITY_TIMER_TIMED_OUT:
                     transitionTo(mIdleState);
                     break;
@@ -981,13 +1019,17 @@ public class SatelliteSessionController extends StateMachine {
                     || datagramTransferState.receiveState
                     == SATELLITE_DATAGRAM_TRANSFER_STATE_WAITING_TO_CONNECT) {
                 stopNbIotInactivityTimer();
+                stopCarrierRoamingNbIotInactivityTimer();
             } else if (datagramTransferState.sendState == SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE
                     && datagramTransferState.receiveState
                     == SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE) {
                 startNbIotInactivityTimer();
+                evaluateStartingCarrierRoamingNbIotInactivityTimer();
             } else if (isSending(datagramTransferState.sendState)
                     || isReceiving(datagramTransferState.receiveState)) {
                 restartNbIotInactivityTimer();
+                stopCarrierRoamingNbIotInactivityTimer();
+                evaluateStartingCarrierRoamingNbIotInactivityTimer();
             }
         }
     }
@@ -1092,6 +1134,9 @@ public class SatelliteSessionController extends StateMachine {
             case EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT:
                 whatString = "EVENT_SCREEN_OFF_INACTIVITY_TIMER_TIMED_OUT";
                 break;
+            case EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT:
+                whatString = "EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT";
+                break;
             default:
                 whatString = "UNKNOWN EVENT " + what;
         }
@@ -1104,6 +1149,15 @@ public class SatelliteSessionController extends StateMachine {
         } else {
             setInitialState(mUnavailableState);
         }
+    }
+
+    private int getSubId() {
+        Phone phone = mSatelliteController.getSatellitePhone();
+        if (phone == null) {
+            return SatelliteServiceUtils.getPhone().getSubId();
+        }
+
+        return phone.getSubId();
     }
 
     private void notifyStateChangedEvent(@SatelliteManager.SatelliteModemState int state) {
@@ -1324,17 +1378,85 @@ public class SatelliteSessionController extends StateMachine {
     }
 
     private int getScreenOffInactivityTimeoutDurationSec() {
-        PersistableBundle config = mSatelliteController.getPersistableBundle(
-                mPhone.getSubId());
+        PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
 
         return config.getInt(KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
                 DEFAULT_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC);
     }
 
+    private int getP2pSmsInactivityTimeoutDurationSec() {
+        PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
+
+        return config.getInt(KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
+                DEFAULT_P2P_SMS_INACTIVITY_TIMEOUT_SEC);
+    }
+
+    private int getEsosInactivityTimeoutDurationSec() {
+        PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
+
+        return config.getInt(KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT,
+                DEFAULT_ESOS_INACTIVITY_TIMEOUT_SEC);
+    }
+
+    private void evaluateStartingCarrierRoamingNbIotInactivityTimer() {
+        if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: "
+                    + "carrierRoamingNbIotNtn is disabled");
+            return;
+        }
+
+        int subId = getSubId();
+        if (!mSatelliteController.isSatelliteRoamingP2pSmSSupported(subId)
+                && !mSatelliteController.isSatelliteEsosSupported(subId)) {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: "
+                    + "device does not support P2P SMS and ESOS are disabled");
+            return;
+        }
+
+        if (mIsDeviceAlignedWithSatellite) {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: "
+                    + "can't start inactivity timer due to device aligned satellite");
+            return;
+        }
+
+        if (hasMessages(EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT)) {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: already started");
+            return;
+        }
+
+        int timeOutMillis;
+        if (mSatelliteController.getRequestIsEmergency()) {
+            timeOutMillis = getEsosInactivityTimeoutDurationSec() * 1000;
+        } else if (mSatelliteController.isInCarrierRoamingNbIotNtn()) {
+            timeOutMillis = getP2pSmsInactivityTimeoutDurationSec() * 1000;
+        } else {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: "
+                    + "can't start inactivity timer device is in not P2P SMS and ESOS mode");
+            return;
+        }
+
+        DatagramController datagramController = DatagramController.getInstance();
+        if (datagramController.isSendingInIdleState()
+                && datagramController.isPollingInIdleState()) {
+            sendMessageDelayed(EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT,
+                    timeOutMillis);
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: start inactivity timer "
+                    + timeOutMillis);
+        } else {
+            plogd("evaluateStartingCarrierRoamingNbIotInactivityTimer: "
+                    + "can't start inactivity timer");
+        }
+    }
+
+    private void stopCarrierRoamingNbIotInactivityTimer() {
+        removeMessages(EVENT_CARRIER_ROAMING_NB_IOT_INACTIVITY_TIMER_TIMED_OUT);
+        plogd("stopCarrierRoamingNbIotInactivityTimer:");
+    }
+
     private void handleEventScreenOffInactivityTimerTimedOut() {
         plogd("handleEventScreenOffInactivityTimerTimedOut: request disable satellite");
 
-        mSatelliteController.requestSatelliteEnabled(mPhone.getSubId(),
+        mSatelliteController.requestSatelliteEnabled(getSubId(),
                 false /*enableSatellite*/,
                 false /*enableDemoMode*/,
                 mSatelliteController.getRequestIsEmergency() /*isEmergency*/,
@@ -1384,6 +1506,12 @@ public class SatelliteSessionController extends StateMachine {
     }
 
     private void startNbIotInactivityTimer() {
+        if (!isSatelliteEnabledForNtnOnlySubscription()) {
+            plogd("startNbIotInactivityTimer: Can't start timer "
+                    + "because satellite was not enabled for OEM based NB IOT");
+            return;
+        }
+
         if (isNbIotInactivityTimerStarted()) {
             plogd("NB IOT inactivity timer is already started");
             return;
@@ -1404,6 +1532,18 @@ public class SatelliteSessionController extends StateMachine {
 
     private boolean isNbIotInactivityTimerStarted() {
         return hasMessages(EVENT_NB_IOT_INACTIVITY_TIMER_TIMED_OUT);
+    }
+
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
+    protected boolean isSatelliteEnabledForNtnOnlySubscription() {
+        if (SatelliteServiceUtils.getNtnOnlySubscriptionId(mContext)
+                != getSubId()) {
+            plogd("isSatelliteEnabledForOemBasedNbIot: highest priority satellite subscription "
+                    + "is not NTN-only subscription");
+            return false;
+        }
+
+        return true;
     }
 
     private boolean isSatellitePersistentLoggingEnabled(

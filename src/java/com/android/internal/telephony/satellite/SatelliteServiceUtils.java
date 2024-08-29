@@ -348,7 +348,7 @@ public class SatelliteServiceUtils {
      * @return ID of the subscription that supports OEM-based satellite if any,
      * return {@link SubscriptionManager#INVALID_SUBSCRIPTION_ID} otherwise.
      */
-    public static int getOemBasedNonTerrestrialSubscriptionId(@NonNull Context context) {
+    public static int getNtnOnlySubscriptionId(@NonNull Context context) {
         List<SubscriptionInfo> infoList =
                 SubscriptionManagerService.getInstance().getAllSubInfoList(
                         context.getOpPackageName(), null);
@@ -358,7 +358,7 @@ public class SatelliteServiceUtils {
                 .mapToInt(SubscriptionInfo::getSubscriptionId)
                 .findFirst()
                 .orElse(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        logd("getOemBasedNonTerrestrialSubscriptionId: subId=" + subId);
+        logd("getNtnOnlySubscriptionId: subId=" + subId);
         return subId;
     }
 

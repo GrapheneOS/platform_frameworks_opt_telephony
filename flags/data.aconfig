@@ -121,3 +121,14 @@ flag {
   }
 }
 
+# OWNER=jackyu TARGET=25Q1
+flag {
+  name: "sim_disabled_graceful_tear_down"
+  namespace: "telephony"
+  description: "Gracefully tear down the networks when SIM is disabled."
+  bug: "362372940"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+}
+

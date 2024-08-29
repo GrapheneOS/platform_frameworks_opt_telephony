@@ -1507,6 +1507,52 @@ public class NetworkTypeControllerTest extends TelephonyTest {
     }
 
     @Test
+    public void testTransitionToNrIdle() throws Exception {
+        doReturn(true).when(mFeatureFlags).supportNrSaRrcIdle();
+        doReturn(NetworkRegistrationInfo.NR_STATE_CONNECTED).when(mServiceState).getNrState();
+        doReturn(ServiceState.FREQUENCY_RANGE_HIGH).when(mServiceState).getNrFrequencyRange();
+        ArrayList<PhysicalChannelConfig> physicalChannelConfigs = new ArrayList<>();
+        // use advanced band
+        physicalChannelConfigs.add(new PhysicalChannelConfig.Builder()
+                .setPhysicalCellId(1)
+                .setNetworkType(TelephonyManager.NETWORK_TYPE_NR)
+                .setCellConnectionStatus(CellInfo.CONNECTION_PRIMARY_SERVING)
+                .setBand(41)
+                .build());
+        doReturn(physicalChannelConfigs).when(mSST).getPhysicalChannelConfigList();
+        mBundle.putIntArray(CarrierConfigManager.KEY_ADDITIONAL_NR_ADVANCED_BANDS_INT_ARRAY,
+                new int[]{41});
+        mBundle.putString(CarrierConfigManager.KEY_5G_ICON_DISPLAY_GRACE_PERIOD_STRING,
+                "connected_mmwave,any,10");
+        sendCarrierConfigChanged();
+
+        assertEquals("connected_mmwave", getCurrentState().getName());
+        assertEquals(TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED,
+                mNetworkTypeController.getOverrideNetworkType());
+
+        // empty PCC, switch to connected_rrc_idle,
+        // isNrAdvanced is still true(due to either advance band OR frequency)
+        physicalChannelConfigs.clear();
+        mNetworkTypeController.sendMessage(11 /* EVENT_PHYSICAL_CHANNEL_CONFIGS_CHANGED */,
+                new AsyncResult(null, physicalChannelConfigs, null));
+        processAllMessages();
+
+        assertEquals("connected_rrc_idle", getCurrentState().getName());
+        assertEquals(TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED,
+                mNetworkTypeController.getOverrideNetworkType());
+        assertTrue(mNetworkTypeController.areAnyTimersActive());
+
+        // Received an event update, verify should stay in idle because physical link didn't change,
+        // otherwise there is a loop between advance state and idle state.
+        mNetworkTypeController.sendMessage(0 /* EVENT_UPDATE */);
+        processAllMessages();
+
+        assertEquals("connected_rrc_idle", getCurrentState().getName());
+        assertEquals(TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED,
+                mNetworkTypeController.getOverrideNetworkType());
+    }
+
+    @Test
     public void testSecondaryTimerAdvanceBand() throws Exception {
         doReturn(true).when(mFeatureFlags).supportNrSaRrcIdle();
         doReturn(NetworkRegistrationInfo.NR_STATE_CONNECTED).when(mServiceState).getNrState();
