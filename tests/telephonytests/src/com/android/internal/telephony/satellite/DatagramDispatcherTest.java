@@ -321,6 +321,9 @@ public class DatagramDispatcherTest extends TelephonyTest {
                     eq(SatelliteServiceUtils.isLastSosMessage(datagramType)));
             assertTrue(mDatagramDispatcherUT.isDatagramWaitForConnectedStateTimerStarted());
             assertEquals(0, mResultListener.size());
+            if (datagramType == SatelliteManager.DATAGRAM_TYPE_SOS_MESSAGE) {
+                assertTrue(mDatagramDispatcherUT.isEmergencyCommunicationEstablished());
+            }
 
             mDatagramDispatcherUT.onSatelliteModemStateChanged(
                     SatelliteManager.SATELLITE_MODEM_STATE_OFF);
@@ -332,6 +335,7 @@ public class DatagramDispatcherTest extends TelephonyTest {
             assertFalse(mDatagramDispatcherUT.isDatagramWaitForConnectedStateTimerStarted());
             verify(mMockSessionMetricsStats, times(1))
                     .addCountOfFailedOutgoingDatagram(anyInt(), anyInt());
+            assertFalse(mDatagramDispatcherUT.isEmergencyCommunicationEstablished());
         }
     }
 

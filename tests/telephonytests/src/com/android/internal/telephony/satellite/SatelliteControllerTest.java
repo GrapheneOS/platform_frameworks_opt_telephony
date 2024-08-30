@@ -23,6 +23,7 @@ import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPOR
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_NIDD_APN_NAME_STRING;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_TURN_OFF_SESSION_FOR_EMERGENCY_CALL_BOOL;
 import static android.telephony.NetworkRegistrationInfo.SERVICE_TYPE_DATA;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
 import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_GOOD;
@@ -88,6 +89,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -163,7 +165,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.lang.reflect.Field;
@@ -532,7 +533,7 @@ public class SatelliteControllerTest extends TelephonyTest {
                 null, mMockTelephonyConfigUpdateInstallReceiver);
         replaceInstance(DemoSimulator.class, "sInstance", null, mMockDemoSimulator);
 
-        mServiceState2 = Mockito.mock(ServiceState.class);
+        mServiceState2 = mock(ServiceState.class);
         when(mPhone.getServiceState()).thenReturn(mServiceState);
         when(mPhone.getSubId()).thenReturn(SUB_ID);
         when(mPhone.getPhoneId()).thenReturn(0);
@@ -634,6 +635,33 @@ public class SatelliteControllerTest extends TelephonyTest {
         logd(TAG + " tearDown");
         mSatelliteControllerUT = null;
         super.tearDown();
+    }
+
+    @Test
+    public void testShouldTurnOffCarrierSatelliteForEmergencyCall() throws Exception {
+        DatagramController datagramController = mock(DatagramController.class);
+        replaceInstance(SatelliteController.class, "mDatagramController",
+                mSatelliteControllerUT, datagramController);
+
+        // Verify should turn off satellite
+        mCarrierConfigBundle.putBoolean(
+                KEY_SATELLITE_ROAMING_TURN_OFF_SESSION_FOR_EMERGENCY_CALL_BOOL, true);
+        doReturn(false).when(datagramController).isEmergencyCommunicationEstablished();
+        invokeCarrierConfigChanged();
+        mSatelliteControllerUT.setSatellitePhone(1);
+        processAllMessages();
+
+        assertTrue(mSatelliteControllerUT.shouldTurnOffCarrierSatelliteForEmergencyCall());
+
+        // Verify should NOT turn off satellite
+        mCarrierConfigBundle.putBoolean(
+                KEY_SATELLITE_ROAMING_TURN_OFF_SESSION_FOR_EMERGENCY_CALL_BOOL, false);
+        doReturn(true).when(datagramController).isEmergencyCommunicationEstablished();
+        invokeCarrierConfigChanged();
+        mSatelliteControllerUT.setSatellitePhone(1);
+        processAllMessages();
+
+        assertFalse(mSatelliteControllerUT.shouldTurnOffCarrierSatelliteForEmergencyCall());
     }
 
     @Test
@@ -4357,8 +4385,6 @@ public class SatelliteControllerTest extends TelephonyTest {
                 eq(R.string.config_satellite_gateway_service_package));
         doReturn("className").when(mResources).getString(
                 eq(R.string.config_satellite_carrier_roaming_esos_provisioned_class));
-        doReturn("action").when(mResources).getString(
-                eq(R.string.config_satellite_carrier_roaming_esos_provisioned_intent_action));
     }
 
     private List<SatelliteSubscriberInfo> getExpectedSatelliteSubscriberInfoList() {

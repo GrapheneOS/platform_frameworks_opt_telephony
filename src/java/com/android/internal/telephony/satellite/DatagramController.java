@@ -344,6 +344,12 @@ public class DatagramController {
         return mReceivePendingCount;
     }
 
+
+    /** @return {@code true} if already sent an emergency datagram during a session. */
+    public boolean isEmergencyCommunicationEstablished() {
+        return mDatagramDispatcher.isEmergencyCommunicationEstablished();
+    }
+
     /**
      * This function is used by {@link SatelliteController} to notify {@link DatagramController}
      * that satellite modem state has changed.
