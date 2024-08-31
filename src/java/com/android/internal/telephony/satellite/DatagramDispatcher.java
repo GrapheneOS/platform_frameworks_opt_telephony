@@ -38,7 +38,6 @@ import android.os.Message;
 import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
-import android.telephony.SubscriptionManager;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
 
@@ -780,17 +779,19 @@ public class DatagramDispatcher extends Handler {
         plogd("cleanUpResources");
         mSendingInProgress = false;
         mIsEmergencyCommunicationEstablished = false;
+
+        int subId = SatelliteController.getInstance().getHighestPrioritySubscrption();
         if (getPendingMessagesCount() > 0) {
-            mDatagramController.updateSendStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+            mDatagramController.updateSendStatus(subId,
                     mLastSendRequestDatagramType,
                     SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_SEND_FAILED,
                     getPendingMessagesCount(), SatelliteManager.SATELLITE_RESULT_REQUEST_ABORTED);
         }
-        mDatagramController.updateSendStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+        mDatagramController.updateSendStatus(subId,
                 mLastSendRequestDatagramType,
                 SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE,
                 0, SatelliteManager.SATELLITE_RESULT_SUCCESS);
-        abortSendingPendingDatagrams(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+        abortSendingPendingDatagrams(subId,
                 SatelliteManager.SATELLITE_RESULT_REQUEST_ABORTED);
 
         stopSatelliteAlignedTimer();
@@ -865,17 +866,18 @@ public class DatagramDispatcher extends Handler {
             @SatelliteManager.DatagramType int datagramType) {
         plogw("Timed out to wait for satellite connected before sending datagrams");
         synchronized (mLock) {
+            int subId = SatelliteController.getInstance().getHighestPrioritySubscrption();
             // Update send status
-            mDatagramController.updateSendStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+            mDatagramController.updateSendStatus(subId,
                     datagramType,
                     SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_SEND_FAILED,
                     getPendingMessagesCount(),
                     SATELLITE_RESULT_NOT_REACHABLE);
-            mDatagramController.updateSendStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+            mDatagramController.updateSendStatus(subId,
                     datagramType,
                     SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE,
                     0, SatelliteManager.SATELLITE_RESULT_SUCCESS);
-            abortSendingPendingDatagrams(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+            abortSendingPendingDatagrams(subId,
                     SATELLITE_RESULT_NOT_REACHABLE);
         }
     }

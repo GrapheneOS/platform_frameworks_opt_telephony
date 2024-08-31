@@ -227,7 +227,7 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
         processAllMessages();
 
         // Verify that SatelliteController#requestSatelliteEnabled() was called.
-        verify(mMockSatelliteController).requestSatelliteEnabled(anyInt(),
+        verify(mMockSatelliteController).requestSatelliteEnabled(
                 eq(false), eq(false), eq(false), any(IIntegerConsumer.Stub.class));
     }
 

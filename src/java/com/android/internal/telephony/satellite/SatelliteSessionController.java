@@ -1456,7 +1456,7 @@ public class SatelliteSessionController extends StateMachine {
     private void handleEventScreenOffInactivityTimerTimedOut() {
         plogd("handleEventScreenOffInactivityTimerTimedOut: request disable satellite");
 
-        mSatelliteController.requestSatelliteEnabled(getSubId(),
+        mSatelliteController.requestSatelliteEnabled(
                 false /*enableSatellite*/,
                 false /*enableDemoMode*/,
                 mSatelliteController.getRequestIsEmergency() /*isEmergency*/,

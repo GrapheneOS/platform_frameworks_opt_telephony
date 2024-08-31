@@ -4238,7 +4238,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
             riljLog(rr.serialString() + "> " + RILUtils.requestToString(rr.mRequest)
                     + " with data profiles : ");
             for (DataProfile profile : dps) {
-                riljLog(profile.toString());
+                riljLog(Objects.toString(profile, "DataProfile is null"));
             }
         }
 

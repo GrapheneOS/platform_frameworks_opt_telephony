@@ -40,7 +40,6 @@ import android.provider.Telephony;
 import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
-import android.telephony.SubscriptionManager;
 import android.telephony.satellite.ISatelliteDatagramCallback;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
@@ -695,13 +694,15 @@ public class DatagramReceiver extends Handler {
             }
             stopDatagramWaitForConnectedStateTimer();
         }
+
+        int subId = SatelliteController.getInstance().getHighestPrioritySubscrption();
         if (mDatagramController.isReceivingDatagrams()) {
-            mDatagramController.updateReceiveStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+            mDatagramController.updateReceiveStatus(subId,
                     SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_FAILED,
                     mDatagramController.getReceivePendingCount(),
                     SatelliteManager.SATELLITE_RESULT_REQUEST_ABORTED);
         }
-        mDatagramController.updateReceiveStatus(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+        mDatagramController.updateReceiveStatus(subId,
                 SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE, 0,
                 SatelliteManager.SATELLITE_RESULT_SUCCESS);
         cleanupDemoModeResources();

@@ -49,7 +49,6 @@ import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.ImsRegistrationAttributes;
@@ -420,7 +419,7 @@ public class SatelliteSOSMessageRecommender extends Handler {
 
     private void registerForInterestedStateChangedEvents() {
         mSatelliteController.registerForSatelliteProvisionStateChanged(
-                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, mISatelliteProvisionStateCallback);
+                mISatelliteProvisionStateCallback);
         for (Phone phone : PhoneFactory.getPhones()) {
             phone.registerForServiceStateChanged(
                     this, EVENT_SERVICE_STATE_CHANGED, null);
@@ -440,7 +439,7 @@ public class SatelliteSOSMessageRecommender extends Handler {
 
     private void unregisterForInterestedStateChangedEvents() {
         mSatelliteController.unregisterForSatelliteProvisionStateChanged(
-                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, mISatelliteProvisionStateCallback);
+                mISatelliteProvisionStateCallback);
         for (Phone phone : PhoneFactory.getPhones()) {
             phone.unregisterForServiceStateChanged(this);
         }

@@ -16,7 +16,6 @@
 
 package com.android.internal.telephony.satellite;
 
-import static android.telephony.SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
 import static android.telephony.satellite.SatelliteManager.DATAGRAM_TYPE_KEEP_ALIVE;
 import static android.telephony.satellite.SatelliteManager.DATAGRAM_TYPE_UNKNOWN;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE;
@@ -615,7 +614,9 @@ public class DatagramController {
                         }
                     }
                 };
-                pollPendingSatelliteDatagrams(DEFAULT_SUBSCRIPTION_ID, internalCallback);
+                pollPendingSatelliteDatagrams(
+                        SatelliteController.getInstance().getHighestPrioritySubscrption(),
+                        internalCallback);
             }
         }
     }

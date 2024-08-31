@@ -51,3 +51,14 @@ flag {
     }
     is_exported: true
 }
+
+# OWNER=breadley TARGET=24Q4
+flag {
+    name: "delay_phone_account_registration"
+    namespace: "telephony"
+    description: "Fix bug where telephony would try to register for PhoneAccounts when Telecom isn't ready yet"
+    bug: "349731543"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}
