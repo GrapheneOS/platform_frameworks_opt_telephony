@@ -18,6 +18,7 @@ package com.android.internal.telephony.metrics;
 
 import static android.telephony.satellite.NtnSignalStrength.NTN_SIGNAL_STRENGTH_NONE;
 
+import android.telephony.TelephonyManager;
 import android.telephony.satellite.NtnSignalStrength;
 import android.telephony.satellite.SatelliteManager;
 
@@ -37,6 +38,7 @@ import com.android.internal.telephony.satellite.SatelliteConstants;
 import com.android.telephony.Rlog;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 /** Tracks Satellite metrics for each phone */
 public class SatelliteStats {
@@ -91,6 +93,7 @@ public class SatelliteStats {
         private final int mCountOfAllowedSatelliteAccess;
         private final int mCountOfDisallowedSatelliteAccess;
         private final int mCountOfSatelliteAccessCheckFail;
+        private static boolean sIsProvisioned;
 
         private SatelliteControllerParams(Builder builder) {
             this.mCountOfSatelliteServiceEnablementsSuccess =
@@ -136,6 +139,11 @@ public class SatelliteStats {
                     builder.mCountOfDisallowedSatelliteAccess;
             this.mCountOfSatelliteAccessCheckFail =
                     builder.mCountOfSatelliteAccessCheckFail;
+
+            // isProvisioned value should be updated only when it is meaningful.
+            if (builder.mIsProvisioned.isPresent()) {
+                this.sIsProvisioned = builder.mIsProvisioned.get();
+            }
         }
 
         public int getCountOfSatelliteServiceEnablementsSuccess() {
@@ -250,6 +258,10 @@ public class SatelliteStats {
             return mCountOfSatelliteAccessCheckFail;
         }
 
+        public boolean isProvisioned() {
+            return sIsProvisioned;
+        }
+
         /**
          * A builder class to create {@link SatelliteControllerParams} data structure class
          */
@@ -282,6 +294,7 @@ public class SatelliteStats {
             private int mCountOfAllowedSatelliteAccess = 0;
             private int mCountOfDisallowedSatelliteAccess = 0;
             private int mCountOfSatelliteAccessCheckFail = 0;
+            private Optional<Boolean> mIsProvisioned = Optional.empty();
 
             /**
              * Sets countOfSatelliteServiceEnablementsSuccess value of {@link SatelliteController}
@@ -561,6 +574,15 @@ public class SatelliteStats {
             }
 
             /**
+             * Sets isProvisioned value of {@link SatelliteController} atom
+             * then returns Builder class
+             */
+            public Builder setIsProvisioned(boolean isProvisioned) {
+                this.mIsProvisioned = Optional.of(isProvisioned);
+                return this;
+            }
+
+            /**
              * Returns ControllerParams, which contains whole component of
              * {@link SatelliteController} atom
              */
@@ -609,6 +631,7 @@ public class SatelliteStats {
                     + ", countOfAllowedSatelliteAccess=" + mCountOfAllowedSatelliteAccess
                     + ", countOfDisallowedSatelliteAccess=" + mCountOfDisallowedSatelliteAccess
                     + ", countOfSatelliteAccessCheckFail=" + mCountOfSatelliteAccessCheckFail
+                    + ", isProvisioned=" + sIsProvisioned
                     + ")";
         }
     }
@@ -1149,6 +1172,8 @@ public class SatelliteStats {
         private final boolean mIsMultiSim;
         private final int mRecommendingHandoverType;
         private final boolean mIsSatelliteAllowedInCurrentLocation;
+        private final boolean mIsWifiConnected;
+        private final int mCarrierId;
 
         private SatelliteSosMessageRecommenderParams(Builder builder) {
             this.mIsDisplaySosMessageSent = builder.mIsDisplaySosMessageSent;
@@ -1159,6 +1184,8 @@ public class SatelliteStats {
             this.mRecommendingHandoverType = builder.mRecommendingHandoverType;
             this.mIsSatelliteAllowedInCurrentLocation =
                     builder.mIsSatelliteAllowedInCurrentLocation;
+            this.mIsWifiConnected = builder.mIsWifiConnected;
+            this.mCarrierId = builder.mCarrierId;
         }
 
         public boolean isDisplaySosMessageSent() {
@@ -1189,6 +1216,14 @@ public class SatelliteStats {
             return mIsSatelliteAllowedInCurrentLocation;
         }
 
+        public boolean isWifiConnected() {
+            return mIsWifiConnected;
+        }
+
+        public int getCarrierId() {
+            return mCarrierId;
+        }
+
         /**
          * A builder class to create {@link SatelliteProvisionParams} data structure class
          */
@@ -1200,6 +1235,8 @@ public class SatelliteStats {
             private boolean mIsMultiSim = false;
             private int mRecommendingHandoverType = -1;
             private boolean mIsSatelliteAllowedInCurrentLocation = false;
+            private boolean mIsWifiConnected = false;
+            private int mCarrierId = TelephonyManager.UNKNOWN_CARRIER_ID;
 
 
             /**
@@ -1268,6 +1305,24 @@ public class SatelliteStats {
             }
 
             /**
+             * Sets whether Wi-Fi is connected value of {@link SatelliteSosMessageRecommender} atom
+             * then returns Builder class
+             */
+            public Builder setIsWifiConnected(boolean isWifiConnected) {
+                this.mIsWifiConnected = isWifiConnected;
+                return this;
+            }
+
+            /**
+             * Sets carrier ID value of {@link SatelliteSosMessageRecommender} atom then returns
+             * Builder class.
+             */
+            public Builder setCarrierId(int carrierId) {
+                this.mCarrierId = carrierId;
+                return this;
+            }
+
+            /**
              * Returns SosMessageRecommenderParams, which contains whole component of
              * {@link SatelliteSosMessageRecommenderParams} atom
              */
@@ -1287,7 +1342,10 @@ public class SatelliteStats {
                     + ", isMultiSim=" + mIsMultiSim
                     + ", recommendingHandoverType=" + mRecommendingHandoverType
                     + ", isSatelliteAllowedInCurrentLocation="
-                    + mIsSatelliteAllowedInCurrentLocation + ")";
+                    + mIsSatelliteAllowedInCurrentLocation
+                    + ", isWifiConnected=" + mIsWifiConnected
+                    + ", carrierId=" + mCarrierId
+                    + ")";
         }
     }
 
@@ -2175,6 +2233,10 @@ public class SatelliteStats {
         proto.countOfDemoModeIncomingDatagramFail = param.getCountOfDemoModeIncomingDatagramFail();
         proto.countOfDatagramTypeKeepAliveSuccess = param.getCountOfDatagramTypeKeepAliveSuccess();
         proto.countOfDatagramTypeKeepAliveFail = param.getCountOfDatagramTypeKeepAliveFail();
+        proto.countOfAllowedSatelliteAccess = param.getCountOfAllowedSatelliteAccess();
+        proto.countOfDisallowedSatelliteAccess = param.getCountOfDisallowedSatelliteAccess();
+        proto.countOfSatelliteAccessCheckFail = param.getCountOfSatelliteAccessCheckFail();
+        proto.isProvisioned = param.isProvisioned();
         mAtomsStorage.addSatelliteControllerStats(proto);
     }
 
@@ -2242,6 +2304,8 @@ public class SatelliteStats {
         proto.isMultiSim = param.isMultiSim();
         proto.recommendingHandoverType = param.getRecommendingHandoverType();
         proto.isSatelliteAllowedInCurrentLocation = param.isSatelliteAllowedInCurrentLocation();
+        proto.isWifiConnected = param.isWifiConnected();
+        proto.carrierId = param.getCarrierId();
         proto.count = 1;
         mAtomsStorage.addSatelliteSosMessageRecommenderStats(proto);
     }

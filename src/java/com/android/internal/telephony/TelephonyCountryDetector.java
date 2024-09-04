@@ -558,7 +558,11 @@ public class TelephonyCountryDetector extends Handler {
         }
     }
 
-    private boolean isWifiNetworkConnected() {
+    /**
+     * Check whether Wi-Fi network is connected or not.
+     * @return {@code true} is Wi-Fi is connected, {@code false} otherwise.
+     */
+    public boolean isWifiNetworkConnected() {
         Network activeNetwork = mConnectivityManager.getActiveNetwork();
         NetworkCapabilities networkCapabilities =
                 mConnectivityManager.getNetworkCapabilities(activeNetwork);

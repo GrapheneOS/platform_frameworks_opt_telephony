@@ -16,9 +16,9 @@
 
 package com.android.internal.telephony.satellite;
 
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_FAILED;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_SUCCESS;
@@ -201,7 +201,7 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
                 eq(mTestSatelliteSessionController.getHandler()), anyInt(), any());
         when(mMockSatelliteController.getRequestIsEmergency()).thenReturn(false);
         PersistableBundle bundle = new PersistableBundle();
-        bundle.putInt(KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
+        bundle.putInt(KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
                 SCREEN_OFF_INACTIVITY_TIMEOUT_SEC);
         when(mMockSatelliteController.getPersistableBundle(anyInt())).thenReturn(bundle);
 
@@ -239,7 +239,7 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
         // Satellite enabling request is for an emergency.
         when(mMockSatelliteController.getRequestIsEmergency()).thenReturn(true);
         PersistableBundle bundle = new PersistableBundle();
-        bundle.putInt(KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
+        bundle.putInt(KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
                 SCREEN_OFF_INACTIVITY_TIMEOUT_SEC);
         when(mMockSatelliteController.getPersistableBundle(anyInt())).thenReturn(bundle);
 
@@ -291,7 +291,7 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
                 anyInt())).thenReturn(true);
         when(mMockSatelliteController.isInCarrierRoamingNbIotNtn()).thenReturn(true);
         PersistableBundle bundle = new PersistableBundle();
-        bundle.putInt(KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
+        bundle.putInt(KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
                 P2P_SMS_INACTIVITY_TIMEOUT_SEC);
         when(mMockSatelliteController.getPersistableBundle(anyInt())).thenReturn(bundle);
 
@@ -334,7 +334,7 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
         when(mMockSatelliteController.getRequestIsEmergency()).thenReturn(true);
         when(mMockSatelliteController.isSatelliteEsosSupported(anyInt())).thenReturn(true);
         PersistableBundle bundle = new PersistableBundle();
-        bundle.putInt(KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT,
+        bundle.putInt(KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT,
                 ESOS_INACTIVITY_TIMEOUT_SEC);
         when(mMockSatelliteController.getPersistableBundle(anyInt())).thenReturn(bundle);
 

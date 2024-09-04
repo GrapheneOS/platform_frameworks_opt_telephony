@@ -16,9 +16,9 @@
 
 package com.android.internal.telephony.satellite;
 
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_IDLE;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_FAILED;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_DATAGRAM_TRANSFER_STATE_RECEIVE_NONE;
@@ -1380,21 +1380,21 @@ public class SatelliteSessionController extends StateMachine {
     private int getScreenOffInactivityTimeoutDurationSec() {
         PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
 
-        return config.getInt(KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
+        return config.getInt(KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
                 DEFAULT_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC);
     }
 
     private int getP2pSmsInactivityTimeoutDurationSec() {
         PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
 
-        return config.getInt(KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
+        return config.getInt(KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
                 DEFAULT_P2P_SMS_INACTIVITY_TIMEOUT_SEC);
     }
 
     private int getEsosInactivityTimeoutDurationSec() {
         PersistableBundle config = mSatelliteController.getPersistableBundle(getSubId());
 
-        return config.getInt(KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT,
+        return config.getInt(KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT,
                 DEFAULT_ESOS_INACTIVITY_TIMEOUT_SEC);
     }
 

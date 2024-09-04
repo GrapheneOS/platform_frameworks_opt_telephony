@@ -29,13 +29,13 @@ import static android.telephony.CarrierConfigManager.KEY_EMERGENCY_MESSAGING_SUP
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ATTACH_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_CONNECTION_HYSTERESIS_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ENTITLEMENT_SUPPORTED_BOOL;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ESOS_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_NIDD_APN_NAME_STRING;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_P2P_SMS_SUPPORTED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_TURN_OFF_SESSION_FOR_EMERGENCY_CALL_BOOL;
-import static android.telephony.CarrierConfigManager.KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
+import static android.telephony.CarrierConfigManager.KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT;
 import static android.telephony.SubscriptionManager.SATELLITE_ATTACH_ENABLED_FOR_CARRIER;
 import static android.telephony.SubscriptionManager.SATELLITE_ENTITLEMENT_STATUS;
 import static android.telephony.SubscriptionManager.isValidSubscriptionId;
@@ -3126,7 +3126,7 @@ public class SatelliteController extends Handler {
      * @return {@code Pair<true, subscription ID>} if any subscription on the device is connected to
      * satellite, {@code Pair<false, null>} otherwise.
      */
-    private Pair<Boolean, Integer> isUsingNonTerrestrialNetworkViaCarrier() {
+    Pair<Boolean, Integer> isUsingNonTerrestrialNetworkViaCarrier() {
         if (!mFeatureFlags.carrierEnabledSatelliteFlag()) {
             logd("isUsingNonTerrestrialNetwork: carrierEnabledSatelliteFlag is disabled");
             return new Pair<>(false, null);
@@ -3592,14 +3592,9 @@ public class SatelliteController extends Handler {
                 return mOverriddenIsSatelliteViaOemProvisioned;
             }
 
-            if (mIsSatelliteViaOemProvisioned != null) {
-                return mIsSatelliteViaOemProvisioned;
-            }
-
             if (mIsSatelliteViaOemProvisioned == null) {
                 mIsSatelliteViaOemProvisioned = getPersistedOemEnabledSatelliteProvisionStatus();
             }
-
             return mIsSatelliteViaOemProvisioned;
         }
     }
@@ -3824,6 +3819,12 @@ public class SatelliteController extends Handler {
                 getPrioritizedSatelliteSubscriberProvisionStatusList();
         plogd("handleEventSatelliteSubscriptionProvisionStateChanged: " + informList);
         notifySatelliteSubscriptionProvisionStateChanged(informList);
+        // Report updated provisioned status
+        synchronized (mSatelliteTokenProvisionedLock) {
+            boolean isProvisioned = !mProvisionedSubscriberId.isEmpty()
+                    && mProvisionedSubscriberId.containsValue(Boolean.TRUE);
+            mControllerMetricsStats.setIsProvisioned(isProvisioned);
+        }
     }
 
     private void notifySatelliteSubscriptionProvisionStateChanged(
@@ -4341,9 +4342,9 @@ public class SatelliteController extends Handler {
                     KEY_CARRIER_ROAMING_NTN_CONNECT_TYPE_INT,
                     KEY_CARRIER_SUPPORTED_SATELLITE_NOTIFICATION_HYSTERESIS_SEC_INT,
                     KEY_CARRIER_ROAMING_NTN_EMERGENCY_CALL_TO_SATELLITE_HANDOVER_TYPE_INT,
-                    KEY_SATELLITE_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
-                    KEY_SATELLITE_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
-                    KEY_SATELLITE_ESOS_INACTIVITY_TIMEOUT_SEC_INT
+                    KEY_SATELLITE_ROAMING_SCREEN_OFF_INACTIVITY_TIMEOUT_SEC_INT,
+                    KEY_SATELLITE_ROAMING_P2P_SMS_INACTIVITY_TIMEOUT_SEC_INT,
+                    KEY_SATELLITE_ROAMING_ESOS_INACTIVITY_TIMEOUT_SEC_INT
             );
         }
         if (config == null || config.isEmpty()) {
@@ -6099,5 +6100,9 @@ public class SatelliteController extends Handler {
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(SubscriptionManager.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED);
         mContext.registerReceiver(mDefaultSmsSubscriptionChangedBroadcastReceiver, intentFilter);
+    }
+
+    FeatureFlags getFeatureFlags() {
+        return mFeatureFlags;
     }
 }

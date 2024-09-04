@@ -718,6 +718,7 @@ message SatelliteController {
     optional int32 count_of_allowed_satellite_access = 26;
     optional int32 count_of_disallowed_satellite_access = 27;
     optional int32 count_of_satellite_access_check_fail = 28;
+    optional bool is_provisioned = 29;
 }
 
 message SatelliteSession {
@@ -767,6 +768,8 @@ message SatelliteSosMessageRecommender {
     optional bool is_multi_sim = 6;
     optional int32 recommending_handover_type = 7;
     optional bool is_satellite_allowed_in_current_location = 8;
+    optional bool is_wifi_connected = 9;
+    optional int32 carrier_id = 10;
 }
 
 message DataNetworkValidation {

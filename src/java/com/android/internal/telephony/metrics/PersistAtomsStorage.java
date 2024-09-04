@@ -770,6 +770,7 @@ public class PersistAtomsStorage {
         atom.countOfAllowedSatelliteAccess += stats.countOfAllowedSatelliteAccess;
         atom.countOfDisallowedSatelliteAccess += stats.countOfDisallowedSatelliteAccess;
         atom.countOfSatelliteAccessCheckFail += stats.countOfSatelliteAccessCheckFail;
+        atom.isProvisioned = stats.isProvisioned;
 
         mAtoms.satelliteController = atomArray;
         saveAtomsToFile(SAVE_TO_FILE_DELAY_FOR_UPDATE_MILLIS);
@@ -2350,7 +2351,9 @@ public class PersistAtomsStorage {
                     && stats.isImsRegistered == key.isImsRegistered
                     && stats.cellularServiceState == key.cellularServiceState
                     && stats.isMultiSim == key.isMultiSim
-                    && stats.recommendingHandoverType == key.recommendingHandoverType) {
+                    && stats.recommendingHandoverType == key.recommendingHandoverType
+                    && stats.isWifiConnected == key.isWifiConnected
+                    && stats.carrierId == key.carrierId) {
                 return stats;
             }
         }

@@ -23,6 +23,7 @@ import static com.android.internal.telephony.satellite.SatelliteConstants.CONFIG
 import static com.android.internal.telephony.satellite.SatelliteConstants.ACCESS_CONTROL_TYPE_CACHED_COUNTRY_CODE;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -102,6 +103,10 @@ public class SatelliteStatsTest extends TelephonyTest {
                         .setCountOfDemoModeIncomingDatagramFail(2)
                         .setCountOfDatagramTypeKeepAliveSuccess(1)
                         .setCountOfDatagramTypeKeepAliveFail(2)
+                        .setCountOfAllowedSatelliteAccess(1)
+                        .setCountOfDisallowedSatelliteAccess(2)
+                        .setCountOfSatelliteAccessCheckFail(3)
+                        .setIsProvisioned(true)
                         .build();
 
         mSatelliteStats.onSatelliteControllerMetrics(param);
@@ -160,6 +165,59 @@ public class SatelliteStatsTest extends TelephonyTest {
                 stats.countOfDatagramTypeKeepAliveSuccess);
         assertEquals(param.getCountOfDatagramTypeKeepAliveFail(),
                 stats.countOfDatagramTypeKeepAliveFail);
+        assertEquals(param.getCountOfAllowedSatelliteAccess(), stats.countOfAllowedSatelliteAccess);
+        assertEquals(param.getCountOfDisallowedSatelliteAccess(),
+                stats.countOfDisallowedSatelliteAccess);
+        assertEquals(param.getCountOfSatelliteAccessCheckFail(),
+                stats.countOfSatelliteAccessCheckFail);
+        assertEquals(param.isProvisioned(), stats.isProvisioned);
+
+        verifyNoMoreInteractions(mPersistAtomsStorage);
+    }
+
+    @Test
+    public void onSatelliteControllerMetrics_isProvisioned() throws Exception {
+        SatelliteStats.SatelliteControllerParams param =
+                new SatelliteStats.SatelliteControllerParams.Builder()
+                        .setCountOfSatelliteServiceEnablementsSuccess(2)
+                        .setIsProvisioned(true)
+                        .build();
+        mSatelliteStats.onSatelliteControllerMetrics(param);
+
+        ArgumentCaptor<SatelliteController> captor =
+                ArgumentCaptor.forClass(SatelliteController.class);
+        verify(mPersistAtomsStorage, times(1)).addSatelliteControllerStats(captor.capture());
+        SatelliteController stats = captor.getValue();
+        assertEquals(param.getCountOfSatelliteServiceEnablementsSuccess(),
+                stats.countOfSatelliteServiceEnablementsSuccess);
+        assertEquals(param.isProvisioned(), stats.isProvisioned);
+
+        param = new SatelliteStats.SatelliteControllerParams.Builder()
+                .setCountOfSatelliteServiceEnablementsSuccess(2)
+                .build();
+        mSatelliteStats.onSatelliteControllerMetrics(param);
+
+        captor = ArgumentCaptor.forClass(SatelliteController.class);
+        verify(mPersistAtomsStorage, times(2)).addSatelliteControllerStats(captor.capture());
+        stats = captor.getValue();
+        // count should be added
+        assertEquals(2, stats.countOfSatelliteServiceEnablementsSuccess);
+        // isProvisioned value should not be updated
+        assertEquals(true, stats.isProvisioned);
+
+        param = new SatelliteStats.SatelliteControllerParams.Builder()
+                .setCountOfSatelliteServiceEnablementsSuccess(2)
+                .setIsProvisioned(false)
+                .build();
+        mSatelliteStats.onSatelliteControllerMetrics(param);
+
+        captor = ArgumentCaptor.forClass(SatelliteController.class);
+        verify(mPersistAtomsStorage, times(3)).addSatelliteControllerStats(captor.capture());
+        stats = captor.getValue();
+        // count should be added
+        assertEquals(2, stats.countOfSatelliteServiceEnablementsSuccess);
+        // isProvisioned should be updated
+        assertEquals(false, stats.isProvisioned);
 
         verifyNoMoreInteractions(mPersistAtomsStorage);
     }
@@ -292,6 +350,8 @@ public class SatelliteStatsTest extends TelephonyTest {
                         .setIsMultiSim(false)
                         .setRecommendingHandoverType(0)
                         .setIsSatelliteAllowedInCurrentLocation(true)
+                        .setIsWifiConnected(true)
+                        .setCarrierId(1)
                         .build();
 
         mSatelliteStats.onSatelliteSosMessageRecommender(param);
@@ -309,6 +369,8 @@ public class SatelliteStatsTest extends TelephonyTest {
         assertEquals(param.getRecommendingHandoverType(), stats.recommendingHandoverType);
         assertEquals(param.isSatelliteAllowedInCurrentLocation(),
                 stats.isSatelliteAllowedInCurrentLocation);
+        assertEquals(param.isWifiConnected(), stats.isWifiConnected);
+        assertEquals(param.getCarrierId(), stats.carrierId);
         verifyNoMoreInteractions(mPersistAtomsStorage);
     }
 

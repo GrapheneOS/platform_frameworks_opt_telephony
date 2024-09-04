@@ -1146,6 +1146,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteController1.countOfDemoModeIncomingDatagramFail = 2;
         mSatelliteController1.countOfDatagramTypeKeepAliveSuccess = 1;
         mSatelliteController1.countOfDatagramTypeKeepAliveFail = 2;
+        mSatelliteController1.isProvisioned = true;
 
         mSatelliteController2 = new SatelliteController();
         mSatelliteController2.countOfSatelliteServiceEnablementsSuccess = 2 + 1;
@@ -1173,6 +1174,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteController2.countOfDemoModeIncomingDatagramFail = 3;
         mSatelliteController2.countOfDatagramTypeKeepAliveSuccess = 4;
         mSatelliteController2.countOfDatagramTypeKeepAliveFail = 5;
+        mSatelliteController2.isProvisioned = false;
 
         // SatelliteController atom has one data point
         mSatelliteControllers =
@@ -1231,7 +1233,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteIncomingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_MODEM_ERROR;
         mSatelliteIncomingDatagram2.datagramSizeBytes = 512;
         mSatelliteIncomingDatagram2.datagramTransferTimeMillis = 1 * 1000;
-        mSatelliteIncomingDatagram1.isDemoMode = true;
+        mSatelliteIncomingDatagram2.isDemoMode = true;
 
         mSatelliteIncomingDatagrams =
                 new SatelliteIncomingDatagram[] {
@@ -1252,7 +1254,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteOutgoingDatagram2.resultCode = SatelliteProtoEnums.SATELLITE_RESULT_MODEM_ERROR;
         mSatelliteOutgoingDatagram2.datagramSizeBytes = 512;
         mSatelliteOutgoingDatagram2.datagramTransferTimeMillis = 1 * 1000;
-        mSatelliteOutgoingDatagram1.isDemoMode = true;
+        mSatelliteOutgoingDatagram2.isDemoMode = true;
 
         mSatelliteOutgoingDatagrams =
                 new SatelliteOutgoingDatagram[] {
@@ -1286,6 +1288,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteSosMessageRecommender1.isMultiSim = true;
         mSatelliteSosMessageRecommender1.recommendingHandoverType = 1;
         mSatelliteSosMessageRecommender1.isSatelliteAllowedInCurrentLocation = true;
+        mSatelliteSosMessageRecommender1.isWifiConnected = true;
+        mSatelliteSosMessageRecommender1.carrierId = 1;
         mSatelliteSosMessageRecommender1.count = 1;
 
         mSatelliteSosMessageRecommender2 = new SatelliteSosMessageRecommender();
@@ -1297,6 +1301,9 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteSosMessageRecommender2.isMultiSim = false;
         mSatelliteSosMessageRecommender2.recommendingHandoverType = 0;
         mSatelliteSosMessageRecommender2.isSatelliteAllowedInCurrentLocation = true;
+        mSatelliteSosMessageRecommender2.isWifiConnected = false;
+        mSatelliteSosMessageRecommender2.carrierId = 2;
+
         mSatelliteSosMessageRecommender2.count = 1;
 
         mSatelliteSosMessageRecommenders =
@@ -1380,7 +1387,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteEntitlement2.result = 1;
         mSatelliteEntitlement2.entitlementStatus =
                 SatelliteProtoEnums.SATELLITE_ENTITLEMENT_STATUS_DISABLED;
-        mSatelliteEntitlement1.isRetry = true;
+        mSatelliteEntitlement2.isRetry = true;
         mSatelliteEntitlement2.count = 1;
 
         mSatelliteEntitlements = new SatelliteEntitlement[] {mSatelliteEntitlement1,
@@ -1416,8 +1423,8 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mSatelliteAccessController1.configDataSource = CONFIG_DATA_SOURCE_DEVICE_CONFIG;
 
         mSatelliteAccessController2 = new SatelliteAccessController();
-        mSatelliteAccessController1.accessControlType = ACCESS_CONTROL_TYPE_CURRENT_LOCATION;
-        mSatelliteAccessController1.locationQueryTimeMillis = TimeUnit.SECONDS.toMillis(4);
+        mSatelliteAccessController2.accessControlType = ACCESS_CONTROL_TYPE_CURRENT_LOCATION;
+        mSatelliteAccessController2.locationQueryTimeMillis = TimeUnit.SECONDS.toMillis(4);
         mSatelliteAccessController2.onDeviceLookupTimeMillis = TimeUnit.SECONDS.toMillis(5);
         mSatelliteAccessController2.totalCheckingTimeMillis = TimeUnit.SECONDS.toMillis(6);
         mSatelliteAccessController2.isAllowed = false;
@@ -5825,6 +5832,17 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                 expectedStats.countOfDemoModeIncomingDatagramSuccess);
         assertEquals(tested[0].countOfDemoModeIncomingDatagramFail,
                 expectedStats.countOfDemoModeIncomingDatagramFail);
+        assertEquals(tested[0].countOfDatagramTypeKeepAliveSuccess,
+                expectedStats.countOfDatagramTypeKeepAliveSuccess);
+        assertEquals(tested[0].countOfDatagramTypeKeepAliveFail,
+                expectedStats.countOfDatagramTypeKeepAliveFail);
+        assertEquals(tested[0].countOfAllowedSatelliteAccess,
+                expectedStats.countOfAllowedSatelliteAccess);
+        assertEquals(tested[0].countOfDisallowedSatelliteAccess,
+                expectedStats.countOfDisallowedSatelliteAccess);
+        assertEquals(tested[0].countOfSatelliteAccessCheckFail,
+                expectedStats.countOfSatelliteAccessCheckFail);
+        assertEquals(tested[0].isProvisioned, expectedStats.isProvisioned);
     }
 
     private static void assertHasStatsAndCount(
@@ -5923,7 +5941,9 @@ public class PersistAtomsStorageTest extends TelephonyTest {
                     && stats.isMultiSim == expectedStats.isMultiSim
                     && stats.recommendingHandoverType == expectedStats.recommendingHandoverType
                     && stats.isSatelliteAllowedInCurrentLocation
-                    == expectedStats.isSatelliteAllowedInCurrentLocation) {
+                    == expectedStats.isSatelliteAllowedInCurrentLocation
+                    && stats.isWifiConnected == expectedStats.isWifiConnected
+                    && stats.carrierId == expectedStats.carrierId) {
                 actualCount = stats.count;
             }
         }

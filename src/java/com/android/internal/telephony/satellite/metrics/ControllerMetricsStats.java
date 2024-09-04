@@ -371,6 +371,15 @@ public class ControllerMetricsStats {
         }
     }
 
+    /** Capture the latest provisioned state for satellite service */
+    @VisibleForTesting
+    public void setIsProvisioned(boolean isProvisioned) {
+        mSatelliteStats.onSatelliteControllerMetrics(
+                new SatelliteStats.SatelliteControllerParams.Builder()
+                        .setIsProvisioned(isProvisioned)
+                        .build());
+    }
+
     /** Receives the battery status whether it is in charging or not, update interval is 60 sec. */
     private final BroadcastReceiver mBatteryStatusReceiver = new BroadcastReceiver() {
         private long mLastUpdatedTime = 0;
