@@ -118,17 +118,6 @@ flag {
     }
 }
 
-# OWNER=rambowang TARGET=24Q3
-flag {
-    name: "hide_preinstalled_carrier_app_at_most_once"
-    namespace: "telephony"
-    description: "Fix bug when preloaded carrier app is uninstalled and lose provisioning data"
-    bug:"158028151"
-    metadata {
-        purpose: PURPOSE_BUGFIX
-    }
-}
-
 # OWNER=sangyun TARGET=24Q3
 flag {
     name: "roaming_notification_for_single_data_network"
@@ -213,17 +202,6 @@ flag {
     namespace: "telephony"
     description: "This flag supports relaxed id match for radio state changes"
     bug:"336916327"
-    metadata {
-        purpose: PURPOSE_BUGFIX
-    }
-}
-
-# OWNER=rambowang TARGET=24Q4
-flag {
-    name: "support_phone_uid_check_for_multiuser"
-    namespace: "telephony"
-    description: "Check phone/system processes from UID with multiuser-aware way"
-    bug:"328511085"
     metadata {
         purpose: PURPOSE_BUGFIX
     }

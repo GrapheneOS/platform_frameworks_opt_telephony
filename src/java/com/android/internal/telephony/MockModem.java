@@ -32,7 +32,6 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.UserHandle;
 
-import com.android.internal.telephony.flags.Flags;
 import com.android.telephony.Rlog;
 
 /** This class provides wrapper APIs for binding interfaces to mock service. */
@@ -161,12 +160,8 @@ public class MockModem {
         intent.setAction(actionName + phoneId);
         intent.putExtra(PHONE_ID, phoneId);
 
-        if (Flags.supportPhoneUidCheckForMultiuser()) {
-            status = mContext.bindServiceAsUser(intent, serviceConnection, Context.BIND_AUTO_CREATE,
-                    UserHandle.of(ActivityManager.getCurrentUser()));
-        } else {
-            status = mContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-        }
+        status = mContext.bindServiceAsUser(intent, serviceConnection, Context.BIND_AUTO_CREATE,
+                UserHandle.of(ActivityManager.getCurrentUser()));
         return status;
     }
 

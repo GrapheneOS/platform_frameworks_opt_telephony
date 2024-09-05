@@ -52,7 +52,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PersistableBundle;
-import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -3037,24 +3036,6 @@ public abstract class SMSDispatcher extends Handler {
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     protected int getSubId() {
         return SubscriptionManager.getSubscriptionId(mPhone.getPhoneId());
-    }
-
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-    private void checkCallerIsPhoneOrCarrierApp() {
-        int uid = Binder.getCallingUid();
-        int appId = UserHandle.getAppId(uid);
-        if (appId == Process.PHONE_UID || uid == 0) {
-            return;
-        }
-        try {
-            PackageManager pm = mContext.getPackageManager();
-            ApplicationInfo ai = pm.getApplicationInfo(getCarrierAppPackageName(), 0);
-            if (UserHandle.getAppId(ai.uid) != UserHandle.getAppId(Binder.getCallingUid())) {
-                throw new SecurityException("Caller is not phone or carrier app!");
-            }
-        } catch (PackageManager.NameNotFoundException re) {
-            throw new SecurityException("Caller is not phone or carrier app!");
-        }
     }
 
     protected boolean isCdmaMo() {
