@@ -719,6 +719,7 @@ message SatelliteController {
     optional int32 count_of_disallowed_satellite_access = 27;
     optional int32 count_of_satellite_access_check_fail = 28;
     optional bool is_provisioned = 29;
+    optional int32 carrier_id = 30;
 }
 
 message SatelliteSession {
@@ -735,6 +736,10 @@ message SatelliteSession {
     optional int32 count_of_incoming_datagram_failed = 11;
     optional bool is_demo_mode = 12;
     optional int32 max_ntn_signal_strength_level = 13;
+    optional int32 carrier_id = 14;
+    optional int32 count_of_satellite_notification_displayed = 15;
+    optional int32 count_of_auto_exit_due_to_screen_off = 16;
+    optional int32 count_of_auto_exit_due_to_tn_network = 17;
 }
 
 message SatelliteIncomingDatagram {
@@ -742,6 +747,7 @@ message SatelliteIncomingDatagram {
     optional int32 datagram_size_bytes = 2;
     optional int64 datagram_transfer_time_millis = 3;
     optional bool is_demo_mode = 4;
+    optional int32 carrier_id = 5;
 }
 
 message SatelliteOutgoingDatagram {
@@ -750,6 +756,7 @@ message SatelliteOutgoingDatagram {
     optional int32 datagram_size_bytes = 3;
     optional int64 datagram_transfer_time_millis = 4;
     optional bool is_demo_mode = 5;
+    optional int32 carrier_id = 6;
 }
 
 message SatelliteProvision {
@@ -757,6 +764,7 @@ message SatelliteProvision {
     optional int32 provisioning_time_sec = 2;
     optional bool is_provision_request = 3;
     optional bool is_canceled = 4;
+    optional int32 carrier_id = 5;
 }
 
 message SatelliteSosMessageRecommender {
@@ -809,6 +817,7 @@ message CarrierRoamingSatelliteControllerStats {
     optional int32 satellite_session_gap_min_sec = 5;
     optional int32 satellite_session_gap_avg_sec = 6;
     optional int32 satellite_session_gap_max_sec = 7;
+    optional int32 carrier_id = 8;
 }
 
 message SatelliteEntitlement {
@@ -836,4 +845,5 @@ message SatelliteAccessController {
     optional int32 result_code = 7;
     repeated string country_codes = 8;
     optional int32 config_data_source = 9;
+    optional int32 carrier_id = 10;
 }

@@ -43,14 +43,6 @@ flag {
     bug:"318348580"
 }
 
-# OWNER=rambowang TARGET=24Q3
-flag {
-    name: "cleanup_open_logical_channel_record_on_dispose"
-    namespace: "telephony"
-    description: "This flag cleans up the OpenLogicalChannelRecord once SIM is removed"
-    bug:"335046531"
-}
-
 # OWNER=arunvoddu TARGET=24Q4
 flag {
     name: "set_carrier_restriction_status"

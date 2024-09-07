@@ -255,8 +255,7 @@ public abstract class SMSDispatcher extends Handler {
         mContext.getContentResolver().registerContentObserver(Settings.Global.getUriFor(
                 Settings.Global.SMS_SHORT_CODE_RULE), false, mSettingsObserver);
 
-        mSmsCapable = mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_sms_capable);
+        mSmsCapable = mTelephonyManager.isDeviceSmsCapable();
         mSmsSendDisabled = !mTelephonyManager.getSmsSendCapableForPhone(
                 mPhone.getPhoneId(), mSmsCapable);
         IntentFilter intentFilter = new IntentFilter();

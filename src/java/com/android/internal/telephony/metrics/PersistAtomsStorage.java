@@ -771,6 +771,7 @@ public class PersistAtomsStorage {
         atom.countOfDisallowedSatelliteAccess += stats.countOfDisallowedSatelliteAccess;
         atom.countOfSatelliteAccessCheckFail += stats.countOfSatelliteAccessCheckFail;
         atom.isProvisioned = stats.isProvisioned;
+        atom.carrierId = stats.carrierId;
 
         mAtoms.satelliteController = atomArray;
         saveAtomsToFile(SAVE_TO_FILE_DELAY_FOR_UPDATE_MILLIS);
@@ -870,6 +871,7 @@ public class PersistAtomsStorage {
         atom.satelliteSessionGapMinSec = stats.satelliteSessionGapMinSec;
         atom.satelliteSessionGapAvgSec = stats.satelliteSessionGapAvgSec;
         atom.satelliteSessionGapMaxSec = stats.satelliteSessionGapMaxSec;
+        atom.carrierId = stats.carrierId;
 
         mAtoms.carrierRoamingSatelliteControllerStats = atomArray;
         saveAtomsToFile(SAVE_TO_FILE_DELAY_FOR_UPDATE_MILLIS);
@@ -2332,7 +2334,12 @@ public class PersistAtomsStorage {
                     && stats.countOfIncomingDatagramSuccess == key.countOfIncomingDatagramSuccess
                     && stats.countOfIncomingDatagramFailed == key.countOfIncomingDatagramFailed
                     && stats.isDemoMode == key.isDemoMode
-                    && stats.maxNtnSignalStrengthLevel == key.maxNtnSignalStrengthLevel) {
+                    && stats.maxNtnSignalStrengthLevel == key.maxNtnSignalStrengthLevel
+                    && stats.carrierId == key.carrierId
+                    && stats.countOfSatelliteNotificationDisplayed
+                    == key.countOfSatelliteNotificationDisplayed
+                    && stats.countOfAutoExitDueToScreenOff == key.countOfAutoExitDueToScreenOff
+                    && stats.countOfAutoExitDueToTnNetwork == key.countOfAutoExitDueToTnNetwork) {
                 return stats;
             }
         }

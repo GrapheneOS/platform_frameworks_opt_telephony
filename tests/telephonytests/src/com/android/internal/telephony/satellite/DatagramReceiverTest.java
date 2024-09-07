@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony.satellite;
 
+import static android.telephony.TelephonyManager.UNKNOWN_CARRIER_ID;
+
 import static com.android.internal.telephony.satellite.DatagramController.SATELLITE_ALIGN_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -144,6 +146,7 @@ public class DatagramReceiverTest extends TelephonyTest {
         when(mMockDatagramController.isPollingInIdleState()).thenReturn(true);
         when(mMockDatagramController.needsWaitingForSatelliteConnected(
                 eq(SatelliteManager.DATAGRAM_TYPE_UNKNOWN))).thenReturn(false);
+        when(mMockSatelliteController.getSatelliteCarrierId()).thenReturn(UNKNOWN_CARRIER_ID);
         processAllMessages();
     }
 

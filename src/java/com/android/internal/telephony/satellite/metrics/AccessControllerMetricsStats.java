@@ -15,6 +15,7 @@
  */
 package com.android.internal.telephony.satellite.metrics;
 
+import static android.telephony.TelephonyManager.UNKNOWN_CARRIER_ID;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_RESULT_SUCCESS;
 
 import static com.android.internal.telephony.satellite.SatelliteConstants.CONFIG_DATA_SOURCE_UNKNOWN;
@@ -42,6 +43,7 @@ public class AccessControllerMetricsStats {
     private @SatelliteManager.SatelliteResult int mResultCode;
     private String[] mCountryCodes;
     private @SatelliteConstants.ConfigDataSource int mConfigDataSource;
+    private int mCarrierId;
     private AccessControllerMetricsStats() {
         initializeAccessControllerMetricsParam();
     }
@@ -70,6 +72,7 @@ public class AccessControllerMetricsStats {
         mResultCode = SATELLITE_RESULT_SUCCESS;
         mCountryCodes = new String[0];
         mConfigDataSource = CONFIG_DATA_SOURCE_UNKNOWN;
+        mCarrierId = UNKNOWN_CARRIER_ID;
     }
     /**
      * Sets the Access Control Type for current satellite enablement.
@@ -161,6 +164,17 @@ public class AccessControllerMetricsStats {
         logd("setConfigDataSource: config data source = " + mConfigDataSource);
         return this;
     }
+
+    /**
+     * Sets the carrier id for NTN satellite service.
+     * @param carrierId Carrier ID of currently available NTN Satellite Network.
+     */
+    public AccessControllerMetricsStats setCarrierId(int carrierId) {
+        mCarrierId = carrierId;
+        logd("setCarrierId: Carrier ID = " + mCarrierId);
+        return this;
+    }
+
     /** Report the access controller metrics atoms to PersistAtomsStorage in telephony. */
     public void reportAccessControllerMetrics() {
         SatelliteStats.SatelliteAccessControllerParams accessControllerParams =
@@ -174,6 +188,7 @@ public class AccessControllerMetricsStats {
                         .setResult(mResultCode)
                         .setCountryCodes(mCountryCodes)
                         .setConfigDatasource(mConfigDataSource)
+                        .setCarrierId(mCarrierId)
                         .build();
         logd("reportAccessControllerMetrics: " + accessControllerParams.toString());
         SatelliteStats.getInstance().onSatelliteAccessControllerMetrics(accessControllerParams);

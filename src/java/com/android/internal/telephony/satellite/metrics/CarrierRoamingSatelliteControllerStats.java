@@ -80,6 +80,14 @@ public class CarrierRoamingSatelliteControllerStats {
                         .build());
     }
 
+    /** Capture the NB-IoT NTN carrier ID */
+    public void reportCarrierId(int carrierId) {
+        mSatelliteStats.onCarrierRoamingSatelliteControllerStatsMetrics(
+                new SatelliteStats.CarrierRoamingSatelliteControllerStatsParams.Builder()
+                        .setCarrierId(carrierId)
+                        .build());
+    }
+
     private static void logd(@NonNull String log) {
         Log.d(TAG, log);
     }

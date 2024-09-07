@@ -729,6 +729,7 @@ public class DatagramDispatcher extends Handler {
                         .setDatagramTransferTimeMillis(argument.datagramStartTime > 0
                                 ? (System.currentTimeMillis() - argument.datagramStartTime) : 0)
                         .setIsDemoMode(mIsDemoMode)
+                        .setCarrierId(SatelliteController.getInstance().getSatelliteCarrierId())
                         .build());
         if (resultCode == SatelliteManager.SATELLITE_RESULT_SUCCESS) {
             mControllerMetricsStats.reportOutgoingDatagramSuccessCount(argument.datagramType,

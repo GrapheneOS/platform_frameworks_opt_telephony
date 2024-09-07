@@ -16,11 +16,12 @@
 
 package com.android.internal.telephony.satellite;
 
+import static android.telephony.TelephonyManager.UNKNOWN_CARRIER_ID;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_RESULT_MODEM_TIMEOUT;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_RESULT_SUCCESS;
 
-import static com.android.internal.telephony.satellite.DatagramController.SATELLITE_ALIGN_TIMEOUT;
 import static com.android.internal.telephony.SmsDispatchersController.PendingRequest;
+import static com.android.internal.telephony.satellite.DatagramController.SATELLITE_ALIGN_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -176,6 +177,7 @@ public class DatagramDispatcherTest extends TelephonyTest {
         when(mMockDatagramController.isPollingInIdleState()).thenReturn(true);
         when(mMockSatelliteController.getSatellitePhone()).thenReturn(mPhone);
         when(mPhone.getSmsDispatchersController()).thenReturn(mMockSmsDispatchersController);
+        when(mMockSatelliteController.getSatelliteCarrierId()).thenReturn(UNKNOWN_CARRIER_ID);
         mPendingSms = createPendingRequest();
     }
 
