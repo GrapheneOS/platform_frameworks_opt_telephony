@@ -1232,28 +1232,39 @@ public class SatelliteController extends Handler {
                 break;
             }
 
-            case EVENT_WAIT_FOR_SATELLITE_ENABLING_RESPONSE_TIMED_OUT:
+            case EVENT_WAIT_FOR_SATELLITE_ENABLING_RESPONSE_TIMED_OUT: {
                 handleEventWaitForSatelliteEnablingResponseTimedOut(
                         (RequestSatelliteEnabledArgument) msg.obj);
                 break;
+            }
 
             case CMD_UPDATE_SATELLITE_ENABLE_ATTRIBUTES: {
                 request = (SatelliteControllerHandlerRequest) msg.obj;
                 RequestSatelliteEnabledArgument argument =
                         (RequestSatelliteEnabledArgument) request.argument;
 
+                if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+                    plogd("UpdateEnableAttributes: carrierRoamingNbIotNtn flag is disabled");
+                    sendErrorAndReportSessionMetrics(
+                            SatelliteManager.SATELLITE_RESULT_INVALID_ARGUMENTS, argument.callback);
+                    synchronized (mSatelliteEnabledRequestLock) {
+                        mSatelliteEnableAttributesUpdateRequest = null;
+                    }
+                    break;
+                }
+
                 synchronized (mSatelliteEnabledRequestLock) {
                     if (mSatelliteEnabledRequest != null) {
                         plogd("UpdateEnableAttributes: Satellite is being enabled. Need to "
                                 + "wait until enable complete before updating attributes");
-                        return;
+                        break;
                     }
                     if (isSatelliteBeingDisabled()) {
                         plogd("UpdateEnableAttributes: Satellite is being disabled. Aborting the "
                                 + "enable attributes update request");
                         mSatelliteEnableAttributesUpdateRequest = null;
                         argument.callback.accept(SATELLITE_RESULT_REQUEST_ABORTED);
-                        return;
+                        break;
                     }
                 }
                 onCompleted = obtainMessage(EVENT_UPDATE_SATELLITE_ENABLE_ATTRIBUTES_DONE, request);
@@ -1923,6 +1934,12 @@ public class SatelliteController extends Handler {
                      * carriers want to disable satellite for prioritizing emergency calls. Thus,
                      * we need to push the disable request to modem while enable is in progress.
                      */
+                    if (!mFeatureFlags.carrierRoamingNbIotNtn()) {
+                        plogd("requestSatelliteEnabled: carrierRoamingNbIotNtn flag is disabled");
+                        sendErrorAndReportSessionMetrics(
+                                SatelliteManager.SATELLITE_RESULT_ENABLE_IN_PROGRESS, result);
+                        return;
+                    }
                     mSatelliteDisabledRequest = request;
                 }
             }

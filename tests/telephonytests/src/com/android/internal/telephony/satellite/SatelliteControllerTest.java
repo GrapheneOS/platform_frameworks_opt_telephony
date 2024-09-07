@@ -921,6 +921,7 @@ public class SatelliteControllerTest extends TelephonyTest {
 
     @Test
     public void testRequestSatelliteEnabled() {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
         mIsSatelliteEnabledSemaphore.drainPermits();
 
         // Fail to enable satellite when SatelliteController is not fully loaded yet.
