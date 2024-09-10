@@ -1314,6 +1314,7 @@ public class NetworkTypeController extends StateMachine {
             mRatchetedNrBands.addAll(nrBands);
         } else {
             if (mFeatureFlags.supportNrSaRrcIdle() && mDoesPccListIndicateIdle
+                    && anchorNrCellId != mLastAnchorNrCellId
                     && isUsingPhysicalChannelConfigForRrcDetection()
                     && !mPrimaryCellChangedWhileIdle
                     && !isNrAdvancedForPccFields(nrBandwidths, nrBands)) {
@@ -1352,11 +1353,13 @@ public class NetworkTypeController extends StateMachine {
         if (secondaryRule != null) {
             int secondaryDuration = secondaryRule.getSecondaryTimer(mSecondaryTimerState);
             long durationMillis = secondaryDuration * 1000L;
-            if ((mSecondaryTimerExpireTimestamp - SystemClock.uptimeMillis()) > durationMillis) {
+            long now = SystemClock.uptimeMillis();
+            if ((mSecondaryTimerExpireTimestamp - now) > durationMillis) {
                 if (DBG) log("Due to PCI change, reduce the secondary timer to " + durationMillis);
                 removeMessages(EVENT_SECONDARY_TIMER_EXPIRED);
                 sendMessageDelayed(EVENT_SECONDARY_TIMER_EXPIRED, mSecondaryTimerState,
                         durationMillis);
+                mSecondaryTimerExpireTimestamp = now + durationMillis;
             }
         } else {
             loge("!! Secondary timer is active, but found no rule for " + mPrimaryTimerState);

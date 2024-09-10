@@ -1649,8 +1649,23 @@ public class NetworkTypeControllerTest extends TelephonyTest {
                 mNetworkTypeController.getOverrideNetworkType());
         assertTrue(mNetworkTypeController.areAnyTimersActive());
 
+
+        // the timer has been reduced from 20 - 6s(advance band) to 5s(regular). Suppose passed 1s,
+        // a new PCC shouldn't affect the timer.
+        moveTimeForward(1 * 1000);
+        mNetworkTypeController.sendMessage(11 /* EVENT_PHYSICAL_CHANNEL_CONFIGS_CHANGED */,
+                new AsyncResult(null, Collections.emptyList(), null));
+        mNetworkTypeController.sendMessage(11 /* EVENT_PHYSICAL_CHANNEL_CONFIGS_CHANGED */,
+                new AsyncResult(null, List.of(
+                        new PhysicalChannelConfig.Builder()
+                                .setPhysicalCellId(3)
+                                .setNetworkType(TelephonyManager.NETWORK_TYPE_NR)
+                                .setCellConnectionStatus(CellInfo.CONNECTION_PRIMARY_SERVING)
+                                .build()), null));
+        processAllMessages();
+
         // Verify the timer has been reduced from 20 - 6s(advance band) to 5s(regular).
-        moveTimeForward(5 * 1000);
+        moveTimeForward(4 * 1000);
         processAllMessages();
 
         assertEquals("connected_rrc_idle", getCurrentState().getName());
