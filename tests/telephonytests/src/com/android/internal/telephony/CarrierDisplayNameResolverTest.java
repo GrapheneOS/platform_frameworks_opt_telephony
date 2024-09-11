@@ -19,7 +19,6 @@ package com.android.internal.telephony;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
-
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 
@@ -38,7 +37,6 @@ import com.android.internal.telephony.uicc.UiccCardApplication;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import org.mockito.Mockito;
 
 public class CarrierDisplayNameResolverTest extends TelephonyTest {
@@ -281,7 +279,7 @@ public class CarrierDisplayNameResolverTest extends TelephonyTest {
             CarrierDisplayNameData cdnd = new CarrierDisplayNameData.Builder()
                     .setSpn("testSpn").build();
             fail("Expected IAE");
-        } catch(IllegalArgumentException expected) {
+        } catch (IllegalArgumentException expected) {
         }
     }
 }

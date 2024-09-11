@@ -657,7 +657,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         // Initialize device storage and outgoing SMS usage monitors for SMSDispatchers.
         mTelephonyComponentFactory = telephonyComponentFactory;
         mSmsStorageMonitor = mTelephonyComponentFactory.inject(SmsStorageMonitor.class.getName())
-                .makeSmsStorageMonitor(this);
+                .makeSmsStorageMonitor(this, mFeatureFlags);
         mSmsUsageMonitor = mTelephonyComponentFactory.inject(SmsUsageMonitor.class.getName())
                 .makeSmsUsageMonitor(context);
         mUiccController = UiccController.getInstance();
@@ -3179,7 +3179,11 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             Intent intent = new Intent(TelephonyIntents.SECRET_CODE_ACTION,
                     Uri.parse("android_secret_code://" + code));
             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            mContext.sendBroadcast(intent, null, options.toBundle());
+            if (mFeatureFlags.hsumBroadcast()) {
+                mContext.sendBroadcastAsUser(intent, UserHandle.ALL, null, options.toBundle());
+            } else {
+                mContext.sendBroadcast(intent, null, options.toBundle());
+            }
 
             // {@link TelephonyManager.ACTION_SECRET_CODE} will replace {@link
             // TelephonyIntents#SECRET_CODE_ACTION} in the next Android version. Before
@@ -3187,7 +3191,12 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             Intent secrectCodeIntent = new Intent(TelephonyManager.ACTION_SECRET_CODE,
                     Uri.parse("android_secret_code://" + code));
             secrectCodeIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            mContext.sendBroadcast(secrectCodeIntent, null, options.toBundle());
+            if (mFeatureFlags.hsumBroadcast()) {
+                mContext.sendBroadcastAsUser(secrectCodeIntent, UserHandle.ALL, null,
+                        options.toBundle());
+            } else {
+                mContext.sendBroadcast(secrectCodeIntent, null, options.toBundle());
+            }
         }
     }
 

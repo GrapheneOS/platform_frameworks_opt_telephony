@@ -27,7 +27,7 @@ import java.util.Objects;
  */
 public class CarrierDisplayNameData implements Parcelable {
 
-    private static String LOG_TAG = "CarrierDisplayNameData";
+    private static final String LOG_TAG = "CarrierDisplayNameData";
 
     /** Service provider name. */
     private final String mSpn;

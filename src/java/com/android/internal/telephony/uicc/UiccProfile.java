@@ -106,7 +106,8 @@ public class UiccProfile extends IccCard {
 
     private static final String OPERATOR_BRAND_OVERRIDE_PREFIX = "operator_branding_";
 
-    private final @NonNull FeatureFlags mFlags;
+    @NonNull
+    private final FeatureFlags mFlags;
     // The lock object is created by UiccSlot that owns the UiccCard that owns this UiccProfile.
     // This is to share the lock between UiccSlot, UiccCard and UiccProfile for now.
     private final Object mLock;
@@ -1140,7 +1141,7 @@ public class UiccProfile extends IccCard {
                     //Create newly added Applications
                     if (i < ics.mApplications.length) {
                         mUiccApplications[i] = new UiccCardApplication(this,
-                                ics.mApplications[i], mContext, mCi);
+                                ics.mApplications[i], mContext, mCi, mFlags);
                     }
                 } else if (i >= ics.mApplications.length) {
                     //Delete removed applications

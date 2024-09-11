@@ -390,7 +390,7 @@ public class GsmCdmaPhone extends Phone {
                 .makeDataNetworkController(this, getLooper(), featureFlags);
 
         mCarrierResolver = mTelephonyComponentFactory.inject(CarrierResolver.class.getName())
-                .makeCarrierResolver(this);
+                .makeCarrierResolver(this, featureFlags);
         mCarrierPrivilegesTracker = new CarrierPrivilegesTracker(Looper.myLooper(), this, context);
 
         getCarrierActionAgent().registerForCarrierAction(

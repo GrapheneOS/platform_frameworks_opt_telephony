@@ -29,6 +29,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.RegistrantList;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.provider.DeviceConfig;
 import android.sysprop.TelephonyProperties;
 import android.telephony.PhoneCapability;
@@ -773,7 +774,11 @@ public class PhoneConfigurationManager {
 
         Intent intent = new Intent(ACTION_MULTI_SIM_CONFIG_CHANGED);
         intent.putExtra(EXTRA_ACTIVE_SIM_SUPPORTED_COUNT, numOfActiveModems);
-        mContext.sendBroadcast(intent);
+        if (mFeatureFlags.hsumBroadcast()) {
+            mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+        } else {
+            mContext.sendBroadcast(intent);
+        }
     }
     /**
      * This is invoked from shell commands during CTS testing only.

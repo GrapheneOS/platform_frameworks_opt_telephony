@@ -6091,7 +6091,11 @@ public class SatelliteController extends Handler {
 
         Intent intent = new Intent(action);
         intent.setComponent(new ComponentName(packageName, className));
-        mContext.sendBroadcast(intent);
+        if (mFeatureFlags.hsumBroadcast()) {
+            mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+        } else {
+            mContext.sendBroadcast(intent);
+        }
         logd("sendBroadCastForProvisionedESOSSubs" + intent);
     }
 

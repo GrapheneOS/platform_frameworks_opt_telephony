@@ -43,6 +43,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.telephony.CarrierConfigManager;
@@ -792,7 +793,11 @@ public class MultiSimSettingController extends Handler {
         intent.putExtra(EXTRA_DEFAULT_SUBSCRIPTION_SELECT_TYPE, type);
         intent.putExtra(EXTRA_SUBSCRIPTION_ID, defaultSubId);
 
-        mContext.sendBroadcast(intent);
+        if (mFeatureFlags.hsumBroadcast()) {
+            mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+        } else {
+            mContext.sendBroadcast(intent);
+        }
     }
 
     private void sendSubChangeNotificationIfNeeded(int change, boolean dataSelected,
@@ -830,7 +835,11 @@ public class MultiSimSettingController extends Handler {
             if (simCombinationParams.mWarningType == EXTRA_SIM_COMBINATION_WARNING_TYPE_DUAL_CDMA) {
                 intent.putExtra(EXTRA_SIM_COMBINATION_NAMES, simCombinationParams.mSimNames);
             }
-            mContext.sendBroadcast(intent);
+            if (mFeatureFlags.hsumBroadcast()) {
+                mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
+            } else {
+                mContext.sendBroadcast(intent);
+            }
         }
     }
 

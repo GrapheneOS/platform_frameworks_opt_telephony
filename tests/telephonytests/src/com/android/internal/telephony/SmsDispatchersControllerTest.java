@@ -244,7 +244,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     @Test @SmallTest
     public void testReportSmsMemoryStatus() throws Exception {
         int eventReportMemoryStatusDone = 3;
-        SmsStorageMonitor smsStorageMonnitor = new SmsStorageMonitor(mPhone);
+        SmsStorageMonitor smsStorageMonnitor = new SmsStorageMonitor(mPhone, mFeatureFlags);
         Message result = smsStorageMonnitor.obtainMessage(eventReportMemoryStatusDone);
         ImsSmsDispatcher mImsSmsDispatcher = Mockito.mock(ImsSmsDispatcher.class);
         mSmsDispatchersController.setImsSmsDispatcher(mImsSmsDispatcher);
@@ -257,7 +257,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     @Test @SmallTest
     public void testReportSmsMemoryStatusFailure() throws Exception {
         int eventReportMemoryStatusDone = 3;
-        SmsStorageMonitor smsStorageMonnitor = new SmsStorageMonitor(mPhone);
+        SmsStorageMonitor smsStorageMonnitor = new SmsStorageMonitor(mPhone, mFeatureFlags);
         Message result = smsStorageMonnitor.obtainMessage(eventReportMemoryStatusDone);
         mSmsDispatchersController.setImsSmsDispatcher(null);
         mSmsDispatchersController.reportSmsMemoryStatus(result);

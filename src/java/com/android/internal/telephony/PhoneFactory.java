@@ -207,7 +207,7 @@ public class PhoneFactory {
 
                 // Instantiate UiccController so that all other classes can just
                 // call getInstance()
-                sUiccController = UiccController.make(context);
+                sUiccController = UiccController.make(context, featureFlags);
 
                 Rlog.i(LOG_TAG, "Creating SubscriptionManagerService");
                 sSubscriptionManagerService = new SubscriptionManagerService(context,

@@ -565,7 +565,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
     @Test
     public void testSendTextWithMessageRefNegativeBoundaryCondition() throws Exception {
         mIsimUiccRecords = new IsimUiccRecords(mUiccCardApplication3gpp, mContext,
-                mSimulatedCommands);
+                mSimulatedCommands, mFeatureFlags);
         doReturn(mIsimUiccRecords).when(mPhone).getIccRecords();
         Message msg = mGsmSmsDispatcher.obtainMessage(17);
         mPhone.getIccRecords().setSmssTpmrValue(-1, msg);
@@ -584,7 +584,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
     @Test
     public void testSendTextWithMessageRefMaxBoundaryCondition() throws Exception {
         mIsimUiccRecords = new IsimUiccRecords(mUiccCardApplication3gpp, mContext,
-                mSimulatedCommands);
+                mSimulatedCommands, mFeatureFlags);
         doReturn(mIsimUiccRecords).when(mPhone).getIccRecords();
         Message msg = mGsmSmsDispatcher.obtainMessage(17);
         mPhone.getIccRecords().setSmssTpmrValue(255, msg);
