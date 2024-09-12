@@ -189,6 +189,7 @@ public class PointingAppController {
         public static final int EVENT_SEND_DATAGRAM_STATE_CHANGED = 2;
         public static final int EVENT_RECEIVE_DATAGRAM_STATE_CHANGED = 3;
         public static final int EVENT_DATAGRAM_TRANSFER_STATE_CHANGED = 4;
+        public static final int EVENT_SEND_DATAGRAM_REQUESTED = 5;
 
         private final ConcurrentHashMap<IBinder, ISatelliteTransmissionUpdateCallback> mListeners;
 
@@ -268,6 +269,24 @@ public class PointingAppController {
                                     request.pendingCount, request.errorCode);
                         } catch (RemoteException e) {
                             logd("EVENT_RECEIVE_DATAGRAM_STATE_CHANGED RemoteException: " + e);
+                            toBeRemoved.add(listener.asBinder());
+                        }
+                    });
+                    toBeRemoved.forEach(listener -> {
+                        mListeners.remove(listener);
+                    });
+                    break;
+                }
+
+                case EVENT_SEND_DATAGRAM_REQUESTED: {
+                    logd("Received EVENT_SEND_DATAGRAM_REQUESTED");
+                    int datagramType = (int) msg.obj;
+                    List<IBinder> toBeRemoved = new ArrayList<>();
+                    mListeners.values().forEach(listener -> {
+                        try {
+                            listener.onSendDatagramRequested(datagramType);
+                        } catch (RemoteException e) {
+                            logd("EVENT_SEND_DATAGRAM_REQUESTED RemoteException: " + e);
                             toBeRemoved.add(listener.asBinder());
                         }
                     });
@@ -433,6 +452,24 @@ public class PointingAppController {
             Message msg = handler.obtainMessage(
                     SatelliteTransmissionUpdateHandler.EVENT_SEND_DATAGRAM_STATE_CHANGED,
                     request);
+            msg.sendToTarget();
+        } else {
+            ploge("SatelliteTransmissionUpdateHandler not found for subId: " + subId);
+        }
+    }
+
+    /**
+     * This API is used to notify PointingAppController that a send datagram has just been
+     * requested.
+     */
+    public void onSendDatagramRequested(
+            int subId, @SatelliteManager.DatagramType int datagramType) {
+        SatelliteTransmissionUpdateHandler handler =
+                mSatelliteTransmissionUpdateHandlers.get(subId);
+        if (handler != null) {
+            Message msg = handler.obtainMessage(
+                    SatelliteTransmissionUpdateHandler.EVENT_SEND_DATAGRAM_REQUESTED,
+                    datagramType);
             msg.sendToTarget();
         } else {
             ploge("SatelliteTransmissionUpdateHandler not found for subId: " + subId);

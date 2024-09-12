@@ -252,6 +252,7 @@ public class DatagramController {
             @NonNull Consumer<Integer> callback) {
         mDatagramDispatcher.sendSatelliteDatagram(subId, datagramType, datagram,
                 needFullScreenPointingUI, callback);
+        mPointingAppController.onSendDatagramRequested(subId, datagramType);
     }
 
     /**

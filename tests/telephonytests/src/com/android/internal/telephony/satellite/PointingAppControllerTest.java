@@ -196,6 +196,11 @@ public class PointingAppControllerTest extends TelephonyTest {
             }
         }
 
+        @Override
+        public void onSendDatagramRequested(int datagramType) {
+            logd("onSendDatagramRequested: datagramType=" + datagramType);
+        }
+
         public int getDatagramType() {
             return mDatagramType;
         }
