@@ -720,6 +720,9 @@ message SatelliteController {
     optional int32 count_of_satellite_access_check_fail = 28;
     optional bool is_provisioned = 29;
     optional int32 carrier_id = 30;
+    optional int32 count_of_satellite_allowed_state_changed_events = 31;
+    optional int32 count_of_successful_location_queries = 32;
+    optional int32 count_of_failed_location_queries = 33;
 }
 
 message SatelliteSession {
@@ -818,6 +821,7 @@ message CarrierRoamingSatelliteControllerStats {
     optional int32 satellite_session_gap_avg_sec = 6;
     optional int32 satellite_session_gap_max_sec = 7;
     optional int32 carrier_id = 8;
+    optional bool is_device_entitled = 9;
 }
 
 message SatelliteEntitlement {
@@ -846,4 +850,5 @@ message SatelliteAccessController {
     repeated string country_codes = 8;
     optional int32 config_data_source = 9;
     optional int32 carrier_id = 10;
+    optional int32 triggering_event = 11;
 }

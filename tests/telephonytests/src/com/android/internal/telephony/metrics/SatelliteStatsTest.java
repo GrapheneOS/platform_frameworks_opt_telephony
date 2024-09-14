@@ -434,6 +434,8 @@ public class SatelliteStatsTest extends TelephonyTest {
                         .setSatelliteSessionGapMinSec(15)
                         .setSatelliteSessionGapAvgSec(30)
                         .setSatelliteSessionGapMaxSec(45)
+                        .setCarrierId(10)
+                        .setIsDeviceEntitled(true)
                         .build();
 
         mSatelliteStats.onCarrierRoamingSatelliteControllerStatsMetrics(param);
@@ -452,6 +454,70 @@ public class SatelliteStatsTest extends TelephonyTest {
         assertEquals(param.getSatelliteSessionGapMinSec(), stats.satelliteSessionGapMinSec);
         assertEquals(param.getSatelliteSessionGapAvgSec(), stats.satelliteSessionGapAvgSec);
         assertEquals(param.getSatelliteSessionGapMaxSec(), stats.satelliteSessionGapMaxSec);
+        assertEquals(param.getCarrierId(), stats.carrierId);
+        assertEquals(param.isDeviceEntitled(), stats.isDeviceEntitled);
+
+        verifyNoMoreInteractions(mPersistAtomsStorage);
+    }
+
+    @Test
+    public void onCarrierRoamingSatelliteControllerStatsMetrics_testStaticFields()
+            throws Exception {
+        SatelliteStats.CarrierRoamingSatelliteControllerStatsParams param =
+                new SatelliteStats.CarrierRoamingSatelliteControllerStatsParams.Builder()
+                        .setConfigDataSource(4)
+                        .setCountOfEntitlementStatusQueryRequest(6)
+                        .setCountOfSatelliteConfigUpdateRequest(2)
+                        .setCountOfSatelliteNotificationDisplayed(1)
+                        .setSatelliteSessionGapMinSec(15)
+                        .setSatelliteSessionGapAvgSec(30)
+                        .setSatelliteSessionGapMaxSec(45)
+                        .setCarrierId(10)
+                        .setIsDeviceEntitled(true)
+                        .build();
+        mSatelliteStats.onCarrierRoamingSatelliteControllerStatsMetrics(param);
+
+        ArgumentCaptor<CarrierRoamingSatelliteControllerStats> captor =
+                ArgumentCaptor.forClass(CarrierRoamingSatelliteControllerStats.class);
+        verify(mPersistAtomsStorage, times(1)).addCarrierRoamingSatelliteControllerStats(
+                captor.capture());
+        CarrierRoamingSatelliteControllerStats stats = captor.getValue();
+        assertEquals(param.getCountOfEntitlementStatusQueryRequest(),
+                stats.countOfEntitlementStatusQueryRequest);
+        assertEquals(param.getCarrierId(), stats.carrierId);
+        assertEquals(param.isDeviceEntitled(), stats.isDeviceEntitled);
+
+        param = new SatelliteStats.CarrierRoamingSatelliteControllerStatsParams.Builder()
+                .setCountOfSatelliteConfigUpdateRequest(2)
+                .build();
+        mSatelliteStats.onCarrierRoamingSatelliteControllerStatsMetrics(param);
+
+        captor = ArgumentCaptor.forClass(CarrierRoamingSatelliteControllerStats.class);
+        verify(mPersistAtomsStorage, times(2)).addCarrierRoamingSatelliteControllerStats(
+                captor.capture());
+        stats = captor.getValue();
+        // count should be added
+        assertEquals(2, stats.countOfSatelliteConfigUpdateRequest);
+        // static values should not be updated
+        assertEquals(10, stats.carrierId);
+        assertEquals(true, stats.isDeviceEntitled);
+
+        param = new SatelliteStats.CarrierRoamingSatelliteControllerStatsParams.Builder()
+                .setCountOfSatelliteConfigUpdateRequest(2)
+                .setCarrierId(20)
+                .setIsDeviceEntitled(false)
+                .build();
+        mSatelliteStats.onCarrierRoamingSatelliteControllerStatsMetrics(param);
+
+        captor = ArgumentCaptor.forClass(CarrierRoamingSatelliteControllerStats.class);
+        verify(mPersistAtomsStorage, times(3)).addCarrierRoamingSatelliteControllerStats(
+                captor.capture());
+        stats = captor.getValue();
+        // count should be added
+        assertEquals(2, stats.countOfSatelliteConfigUpdateRequest);
+        // static values should be updated
+        assertEquals(20, stats.carrierId);
+        assertEquals(false, stats.isDeviceEntitled);
 
         verifyNoMoreInteractions(mPersistAtomsStorage);
     }

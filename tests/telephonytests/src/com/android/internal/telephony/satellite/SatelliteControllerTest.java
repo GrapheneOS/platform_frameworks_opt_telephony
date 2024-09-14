@@ -4541,6 +4541,55 @@ public class SatelliteControllerTest extends TelephonyTest {
         verify(mContext, times(1)).sendBroadcast(any(Intent.class));
     }
 
+    @Test
+    public void testProvisionStatusPerSubscriberIdGetFromDb() throws Exception {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+
+        setSatelliteSubscriberTesting();
+        // Check if the cache is not updated when the value read from the database is false.
+        verifyProvisionStatusPerSubscriberIdGetFromDb(false);
+
+        // Check if the cache is updated when the value read from the database is true.
+        verifyProvisionStatusPerSubscriberIdGetFromDb(true);
+    }
+
+    @Test
+    public void testProvisionStatusPerSubscriberIdStoreToDb() throws Exception {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+
+        setSatelliteSubscriberTesting();
+        // Check if the cache is not updated when the value read from the database is false.
+        verifyProvisionStatusPerSubscriberIdGetFromDb(false);
+
+        List<SatelliteSubscriberInfo> inputList = getExpectedSatelliteSubscriberInfoList();
+        verifyProvisionSatellite(inputList);
+        verify(mMockSubscriptionManagerService).setIsSatelliteProvisionedForNonIpDatagram(
+                eq(SUB_ID), eq(true));
+    }
+
+    private void verifyProvisionStatusPerSubscriberIdGetFromDb(boolean provision) {
+        doReturn(provision).when(
+                mMockSubscriptionManagerService).isSatelliteProvisionedForNonIpDatagram(anyInt());
+        mCarrierConfigBundle.putString(KEY_SATELLITE_NIDD_APN_NAME_STRING, mNiddApn);
+        mCarrierConfigBundle.putBoolean(KEY_SATELLITE_ESOS_SUPPORTED_BOOL, true);
+        for (Pair<Executor, CarrierConfigManager.CarrierConfigChangeListener> pair
+                : mCarrierConfigChangedListenerList) {
+            pair.first.execute(() -> pair.second.onCarrierConfigChanged(
+                    /*slotIndex*/ 0, /*subId*/ SUB_ID, /*carrierId*/ 0, /*specificCarrierId*/ 0)
+            );
+        }
+        moveTimeForward(TimeUnit.MINUTES.toMillis(1));
+        processAllMessages();
+        mSatelliteControllerUT.requestSatelliteSubscriberProvisionStatus(
+                mRequestSatelliteSubscriberProvisionStatusReceiver);
+        moveTimeForward(TimeUnit.MINUTES.toMillis(1));
+        processAllMessages();
+        assertEquals(SATELLITE_RESULT_SUCCESS,
+                mRequestSatelliteSubscriberProvisionStatusResultCode);
+        assertEquals(provision,
+                mRequestSatelliteSubscriberProvisionStatusResultList.get(0).getProvisionStatus());
+    }
+
     private void setComponentName() {
         when(mSatelliteControllerUT.getStringFromOverlayConfigTest(
                 R.string.config_satellite_gateway_service_package))

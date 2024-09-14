@@ -18,7 +18,9 @@ package com.android.internal.telephony.satellite.metrics;
 import static android.telephony.TelephonyManager.UNKNOWN_CARRIER_ID;
 import static android.telephony.satellite.SatelliteManager.SATELLITE_RESULT_SUCCESS;
 
+import static com.android.internal.telephony.satellite.SatelliteConstants.ACCESS_CONTROL_TYPE_UNKNOWN;
 import static com.android.internal.telephony.satellite.SatelliteConstants.CONFIG_DATA_SOURCE_UNKNOWN;
+import static com.android.internal.telephony.satellite.SatelliteConstants.TRIGGERING_EVENT_UNKNOWN;
 
 import android.annotation.NonNull;
 import android.telephony.satellite.SatelliteManager;
@@ -44,6 +46,7 @@ public class AccessControllerMetricsStats {
     private String[] mCountryCodes;
     private @SatelliteConstants.ConfigDataSource int mConfigDataSource;
     private int mCarrierId;
+    private @SatelliteConstants.TriggeringEvent int mTriggeringEvent;
     private AccessControllerMetricsStats() {
         initializeAccessControllerMetricsParam();
     }
@@ -63,7 +66,7 @@ public class AccessControllerMetricsStats {
         return sInstance;
     }
     private void initializeAccessControllerMetricsParam() {
-        mAccessControlType = SatelliteConstants.ACCESS_CONTROL_TYPE_UNKNOWN;
+        mAccessControlType = ACCESS_CONTROL_TYPE_UNKNOWN;
         mLocationQueryTimeMillis = 0;
         mOnDeviceLookupTimeMillis = 0;
         mTotalCheckingTimeMillis = 0;
@@ -73,6 +76,7 @@ public class AccessControllerMetricsStats {
         mCountryCodes = new String[0];
         mConfigDataSource = CONFIG_DATA_SOURCE_UNKNOWN;
         mCarrierId = UNKNOWN_CARRIER_ID;
+        mTriggeringEvent = TRIGGERING_EVENT_UNKNOWN;
     }
     /**
      * Sets the Access Control Type for current satellite enablement.
@@ -164,7 +168,6 @@ public class AccessControllerMetricsStats {
         logd("setConfigDataSource: config data source = " + mConfigDataSource);
         return this;
     }
-
     /**
      * Sets the carrier id for NTN satellite service.
      * @param carrierId Carrier ID of currently available NTN Satellite Network.
@@ -172,6 +175,16 @@ public class AccessControllerMetricsStats {
     public AccessControllerMetricsStats setCarrierId(int carrierId) {
         mCarrierId = carrierId;
         logd("setCarrierId: Carrier ID = " + mCarrierId);
+        return this;
+    }
+    /**
+     * Sets the triggering event for satellite access controller operation.
+     * @param triggeringEvent triggering event.
+     */
+    public AccessControllerMetricsStats setTriggeringEvent(
+            @SatelliteConstants.TriggeringEvent int triggeringEvent) {
+        mTriggeringEvent = triggeringEvent;
+        logd("setTriggeringEvent: triggering event = " + mTriggeringEvent);
         return this;
     }
 
@@ -189,6 +202,7 @@ public class AccessControllerMetricsStats {
                         .setCountryCodes(mCountryCodes)
                         .setConfigDatasource(mConfigDataSource)
                         .setCarrierId(mCarrierId)
+                        .setTriggeringEvent(mTriggeringEvent)
                         .build();
         logd("reportAccessControllerMetrics: " + accessControllerParams.toString());
         SatelliteStats.getInstance().onSatelliteAccessControllerMetrics(accessControllerParams);

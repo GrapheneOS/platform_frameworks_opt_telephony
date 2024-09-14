@@ -3219,6 +3219,118 @@ public class DataNetworkControllerTest extends TelephonyTest {
     }
 
     @Test
+    public void testSetupDataNetworkWithCandidateProfileWithIncompatibleRetryDataProfile() throws Exception {
+        mDataNetworkControllerUT
+                .getDataRetryManager()
+                .registerCallback(mMockedDataRetryManagerCallback);
+        setFailedSetupDataResponse(mMockedWwanDataServiceManager,
+                DataFailCause.ONLY_IPV4_ALLOWED, 2500 /* mSec */, false);
+        mDataNetworkControllerUT.addNetworkRequest(
+                createNetworkRequest(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        processAllMessages();
+        verify(mMockedWwanDataServiceManager, times(1)).setupDataCall(anyInt(),
+                any(DataProfile.class), anyBoolean(), anyBoolean(), anyInt(), any(), anyInt(),
+                any(), any(), anyBoolean(), any(Message.class));
+
+        moveTimeForward(2500);
+        processAllMessages();
+        ArgumentCaptor<DataRetryManager.DataSetupRetryEntry> retryEntry =
+                ArgumentCaptor.forClass(DataRetryManager.DataSetupRetryEntry.class);
+        verify(mMockedDataRetryManagerCallback, times(1))
+                .onDataNetworkSetupRetry(retryEntry.capture());
+
+        ArgumentCaptor<List<ThrottleStatus>> throttleStatusCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(mMockedDataRetryManagerCallback)
+                .onThrottleStatusChanged(throttleStatusCaptor.capture());
+
+        assertThat(retryEntry.getValue().dataProfile).isNotNull();
+
+        assertThat(retryEntry.getValue().dataProfile).isEqualTo(mGeneralPurposeDataProfile);
+        doReturn(false)
+                .when(mDataProfileManager)
+                .isDataProfileCompatible(retryEntry.getValue().dataProfile);
+
+        doReturn(mDuplicatedGeneralPurposeDataProfile).when(mDataProfileManager)
+                .getDataProfileForNetworkRequest(any(TelephonyNetworkRequest.class),
+                anyInt(), anyBoolean(), anyBoolean(), anyBoolean());
+
+        setSuccessfulSetupDataResponse(mMockedWwanDataServiceManager, 2);
+
+        mDataNetworkControllerUT
+                .getDataRetryManager()
+                .obtainMessage(
+                        6 /* EVENT_DATA_PROFILE_UNTHROTTLED*/,
+                        new AsyncResult(
+                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
+                                mGeneralPurposeDataProfile,
+                                null))
+                .sendToTarget();
+        processAllFutureMessages();
+
+        verify(mMockedWwanDataServiceManager, times(2)).setupDataCall(anyInt(),
+                any(DataProfile.class), anyBoolean(), anyBoolean(), anyInt(), any(), anyInt(),
+                any(), any(), anyBoolean(), any(Message.class));
+
+        verifyConnectedNetworkHasCapabilities(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        verifyConnectedNetworkHasDataProfile(mDuplicatedGeneralPurposeDataProfile);
+    }
+
+    @Test
+    public void testSetupDataNetworkRetryWithCompatibleRetryDataProfile() throws Exception {
+        mDataNetworkControllerUT
+                .getDataRetryManager()
+                .registerCallback(mMockedDataRetryManagerCallback);
+        setFailedSetupDataResponse(mMockedWwanDataServiceManager,
+                DataFailCause.ONLY_IPV4_ALLOWED, 2500 /* mSec */, false);
+        mDataNetworkControllerUT.addNetworkRequest(
+                createNetworkRequest(NetworkCapabilities.NET_CAPABILITY_INTERNET));
+        processAllMessages();
+        verify(mMockedWwanDataServiceManager, times(1)).setupDataCall(anyInt(),
+                any(DataProfile.class), anyBoolean(), anyBoolean(), anyInt(), any(), anyInt(),
+                any(), any(), anyBoolean(), any(Message.class));
+
+        moveTimeForward(2500);
+        processAllMessages();
+        ArgumentCaptor<DataRetryManager.DataSetupRetryEntry> retryEntry =
+                ArgumentCaptor.forClass(DataRetryManager.DataSetupRetryEntry.class);
+        verify(mMockedDataRetryManagerCallback, times(1))
+                .onDataNetworkSetupRetry(retryEntry.capture());
+
+        ArgumentCaptor<List<ThrottleStatus>> throttleStatusCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(mMockedDataRetryManagerCallback)
+                .onThrottleStatusChanged(throttleStatusCaptor.capture());
+
+        assertThat(retryEntry.getValue().dataProfile).isNotNull();
+
+        assertThat(retryEntry.getValue().dataProfile).isEqualTo(mGeneralPurposeDataProfile);
+
+        assertThat(mDataProfileManager.isDataProfileCompatible(retryEntry.getValue().dataProfile))
+                .isTrue();
+
+        setSuccessfulSetupDataResponse(mMockedWwanDataServiceManager, 2);
+
+        mDataNetworkControllerUT
+                .getDataRetryManager()
+                .obtainMessage(
+                        6 /* EVENT_DATA_PROFILE_UNTHROTTLED*/,
+                        new AsyncResult(
+                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
+                                mGeneralPurposeDataProfile,
+                                null))
+                .sendToTarget();
+        processAllFutureMessages();
+
+        verify(mMockedWwanDataServiceManager, times(2)).setupDataCall(anyInt(),
+                any(DataProfile.class), anyBoolean(), anyBoolean(), anyInt(), any(), anyInt(),
+                any(), any(), anyBoolean(), any(Message.class));
+
+        verifyConnectedNetworkHasCapabilities(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        verifyConnectedNetworkHasDataProfile(mGeneralPurposeDataProfile);
+    }
+
+    @Test
     public void testSetupDataNetworkRetryFailed() {
         mDataNetworkControllerUT.getDataRetryManager()
                 .registerCallback(mMockedDataRetryManagerCallback);

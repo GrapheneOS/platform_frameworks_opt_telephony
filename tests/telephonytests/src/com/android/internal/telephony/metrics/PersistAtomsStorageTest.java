@@ -1376,6 +1376,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mCarrierRoamingSatelliteControllerStats1.satelliteSessionGapAvgSec = 3;
         mCarrierRoamingSatelliteControllerStats1.satelliteSessionGapMaxSec = 4;
         mCarrierRoamingSatelliteControllerStats1.carrierId = 1;
+        mCarrierRoamingSatelliteControllerStats1.isDeviceEntitled = true;
 
         mCarrierRoamingSatelliteControllerStats2 = new CarrierRoamingSatelliteControllerStats();
         mCarrierRoamingSatelliteControllerStats2.configDataSource =
@@ -1387,6 +1388,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         mCarrierRoamingSatelliteControllerStats2.satelliteSessionGapAvgSec = 10;
         mCarrierRoamingSatelliteControllerStats2.satelliteSessionGapMaxSec = 15;
         mCarrierRoamingSatelliteControllerStats2.carrierId = 10;
+        mCarrierRoamingSatelliteControllerStats2.isDeviceEntitled = false;
 
         // CarrierRoamingSatelliteController has one data point
         mCarrierRoamingSatelliteControllerStats = new CarrierRoamingSatelliteControllerStats[] {
@@ -5003,6 +5005,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         expected.satelliteSessionGapMaxSec =
                 mCarrierRoamingSatelliteControllerStats2.satelliteSessionGapMaxSec;
         expected.carrierId = mCarrierRoamingSatelliteControllerStats2.carrierId;
+        expected.isDeviceEntitled = mCarrierRoamingSatelliteControllerStats2.isDeviceEntitled;
 
         verifyCurrentStateSavedToFileOnce();
         CarrierRoamingSatelliteControllerStats[] output =
@@ -6261,7 +6264,7 @@ public class PersistAtomsStorageTest extends TelephonyTest {
         assertEquals(tested[0].satelliteSessionGapAvgSec, expectedStats.satelliteSessionGapAvgSec);
         assertEquals(tested[0].satelliteSessionGapMaxSec, expectedStats.satelliteSessionGapMaxSec);
         assertEquals(tested[0].carrierId, expectedStats.carrierId);
-
+        assertEquals(tested[0].isDeviceEntitled, expectedStats.isDeviceEntitled);
     }
 
     private static void assertHasStatsAndCount(

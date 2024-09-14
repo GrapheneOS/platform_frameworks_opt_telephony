@@ -3195,7 +3195,7 @@ public class DataNetworkController extends Handler {
                 telephonyNetworkRequest, DataEvaluationReason.DATA_RETRY);
         if (!evaluation.containsDisallowedReasons()) {
             DataProfile dataProfile = dataSetupRetryEntry.dataProfile;
-            if (dataProfile == null) {
+            if (dataProfile == null || !mDataProfileManager.isDataProfileCompatible(dataProfile)) {
                 dataProfile = evaluation.getCandidateDataProfile();
             }
             if (dataProfile != null) {

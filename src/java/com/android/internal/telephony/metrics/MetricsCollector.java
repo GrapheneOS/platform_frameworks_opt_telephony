@@ -1477,7 +1477,10 @@ public class MetricsCollector implements StatsManager.StatsPullAtomCallback {
                 satelliteController.countOfDisallowedSatelliteAccess,
                 satelliteController.countOfSatelliteAccessCheckFail,
                 satelliteController.isProvisioned,
-                satelliteController.carrierId);
+                satelliteController.carrierId,
+                satelliteController.countOfSatelliteAllowedStateChangedEvents,
+                satelliteController.countOfSuccessfulLocationQueries,
+                satelliteController.countOfFailedLocationQueries);
     }
 
     private static StatsEvent buildStatsEvent(SatelliteSession satelliteSession) {
@@ -1591,7 +1594,8 @@ public class MetricsCollector implements StatsManager.StatsPullAtomCallback {
                 stats.satelliteSessionGapMinSec,
                 stats.satelliteSessionGapAvgSec,
                 stats.satelliteSessionGapMaxSec,
-                stats.carrierId);
+                stats.carrierId,
+                stats.isDeviceEntitled);
     }
 
     private static StatsEvent buildStatsEvent(SatelliteEntitlement stats) {
@@ -1624,7 +1628,8 @@ public class MetricsCollector implements StatsManager.StatsPullAtomCallback {
                 stats.resultCode,
                 stats.countryCodes,
                 stats.configDataSource,
-                stats.carrierId);
+                stats.carrierId,
+                stats.triggeringEvent);
     }
 
     /** Returns all phones in {@link PhoneFactory}, or an empty array if phones not made yet. */
