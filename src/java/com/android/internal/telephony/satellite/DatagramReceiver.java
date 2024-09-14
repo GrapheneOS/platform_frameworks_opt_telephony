@@ -40,6 +40,7 @@ import android.provider.Telephony;
 import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
+import android.telephony.SubscriptionManager;
 import android.telephony.satellite.ISatelliteDatagramCallback;
 import android.telephony.satellite.SatelliteDatagram;
 import android.telephony.satellite.SatelliteManager;
@@ -454,8 +455,7 @@ public class DatagramReceiver extends Handler {
 
                 if (mIsDemoMode && error == SatelliteManager.SATELLITE_RESULT_SUCCESS) {
                     SatelliteDatagram datagram = mDatagramController.popDemoModeDatagram();
-                    final int validSubId = SatelliteServiceUtils.getValidSatelliteSubId(
-                            request.subId, mContext);
+                    final int validSubId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
                     SatelliteDatagramListenerHandler listenerHandler =
                             mSatelliteDatagramListenerHandlers.get(validSubId);
                     if (listenerHandler != null) {
@@ -517,7 +517,7 @@ public class DatagramReceiver extends Handler {
             return SatelliteManager.SATELLITE_RESULT_NOT_SUPPORTED;
         }
 
-        final int validSubId = SatelliteServiceUtils.getValidSatelliteSubId(subId, mContext);
+        final int validSubId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
         SatelliteDatagramListenerHandler satelliteDatagramListenerHandler =
                 mSatelliteDatagramListenerHandlers.get(validSubId);
         if (satelliteDatagramListenerHandler == null) {
@@ -543,7 +543,7 @@ public class DatagramReceiver extends Handler {
      */
     public void unregisterForSatelliteDatagram(int subId,
             @NonNull ISatelliteDatagramCallback callback) {
-        final int validSubId = SatelliteServiceUtils.getValidSatelliteSubId(subId, mContext);
+        final int validSubId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
         SatelliteDatagramListenerHandler handler =
                 mSatelliteDatagramListenerHandlers.get(validSubId);
         if (handler != null) {
@@ -575,7 +575,8 @@ public class DatagramReceiver extends Handler {
             callback.accept(SatelliteManager.SATELLITE_RESULT_MODEM_BUSY);
             return;
         }
-        pollPendingSatelliteDatagramsInternal(subId, callback);
+        pollPendingSatelliteDatagramsInternal(
+                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, callback);
     }
 
     private void handleSatelliteConnectedEvent() {

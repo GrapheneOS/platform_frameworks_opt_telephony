@@ -418,23 +418,12 @@ public class PointingAppControllerTest extends TelephonyTest {
         TestSatelliteTransmissionUpdateCallback callback2 = new
                 TestSatelliteTransmissionUpdateCallback();
         int subId1 = 3;
-        int subId2 = 4;
         mPointingAppController.registerForSatelliteTransmissionUpdates(subId1, callback1);
         mInOrder.verify(mMockSatelliteModemInterface).registerForSatellitePositionInfoChanged(any(),
                 eq(1), eq(null));
         mInOrder.verify(mMockSatelliteModemInterface).registerForDatagramTransferStateChanged(any(),
                 eq(4), eq(null));
         mPointingAppController.registerForSatelliteTransmissionUpdates(subId1, callback2);
-        mInOrder.verify(mMockSatelliteModemInterface, never())
-                .registerForSatellitePositionInfoChanged(any(), eq(1), eq(null));
-        mInOrder.verify(mMockSatelliteModemInterface, never())
-                .registerForDatagramTransferStateChanged(any(), eq(4), eq(null));
-        mPointingAppController.registerForSatelliteTransmissionUpdates(subId2, callback1);
-        mInOrder.verify(mMockSatelliteModemInterface).registerForSatellitePositionInfoChanged(any(),
-                eq(1), eq(null));
-        mInOrder.verify(mMockSatelliteModemInterface).registerForDatagramTransferStateChanged(any(),
-                eq(4), eq(null));
-        mPointingAppController.registerForSatelliteTransmissionUpdates(subId2, callback2);
         mInOrder.verify(mMockSatelliteModemInterface, never())
                 .registerForSatellitePositionInfoChanged(any(), eq(1), eq(null));
         mInOrder.verify(mMockSatelliteModemInterface, never())
@@ -447,22 +436,6 @@ public class PointingAppControllerTest extends TelephonyTest {
         mResultListener.remove();
         mPointingAppController.unregisterForSatelliteTransmissionUpdates(subId1,
                 mResultListener::offer, callback2);
-        mInOrder.verify(mMockSatelliteModemInterface).unregisterForSatellitePositionInfoChanged(
-                any(Handler.class));
-        mInOrder.verify(mMockSatelliteModemInterface).unregisterForDatagramTransferStateChanged(
-                any(Handler.class));
-        mPointingAppController.unregisterForSatelliteTransmissionUpdates(subId2,
-                mResultListener::offer, callback1);
-        processAllMessages();
-        assertThat(mResultListener.peek()).isEqualTo(SatelliteManager.SATELLITE_RESULT_SUCCESS);
-        mResultListener.remove();
-        mInOrder.verify(mMockSatelliteModemInterface, never())
-                .unregisterForSatellitePositionInfoChanged(any(Handler.class));
-        mInOrder.verify(mMockSatelliteModemInterface, never())
-                .unregisterForDatagramTransferStateChanged(any(Handler.class));
-        mPointingAppController.unregisterForSatelliteTransmissionUpdates(subId2,
-                mResultListener::offer, callback2);
-        processAllMessages();
         mInOrder.verify(mMockSatelliteModemInterface).unregisterForSatellitePositionInfoChanged(
                 any(Handler.class));
         mInOrder.verify(mMockSatelliteModemInterface).unregisterForDatagramTransferStateChanged(

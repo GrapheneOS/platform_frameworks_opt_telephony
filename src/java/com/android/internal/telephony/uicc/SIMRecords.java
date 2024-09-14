@@ -19,6 +19,8 @@ package com.android.internal.telephony.uicc;
 import static android.telephony.SmsManager.STATUS_ON_ICC_READ;
 import static android.telephony.SmsManager.STATUS_ON_ICC_UNREAD;
 
+import static com.android.internal.telephony.util.TelephonyUtils.FORCE_VERBOSE_STATE_LOGGING;
+
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
@@ -57,8 +59,7 @@ public class SIMRecords extends IccRecords {
     protected static final String LOG_TAG = "SIMRecords";
 
     private static final boolean CRASH_RIL = false;
-    private static final boolean FORCE_VERBOSE_STATE_LOGGING = false; /* stopship if true */
-    private static final boolean VDBG =  FORCE_VERBOSE_STATE_LOGGING ||
+    private static final boolean VDBG = FORCE_VERBOSE_STATE_LOGGING ||
             Rlog.isLoggable(LOG_TAG, Log.VERBOSE);
 
     // ***** Instance Variables

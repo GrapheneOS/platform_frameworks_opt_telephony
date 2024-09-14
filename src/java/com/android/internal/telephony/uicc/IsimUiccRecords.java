@@ -17,6 +17,9 @@
 package com.android.internal.telephony.uicc;
 
 import android.annotation.NonNull;
+
+import static com.android.internal.telephony.util.TelephonyUtils.FORCE_VERBOSE_STATE_LOGGING;
+
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
@@ -46,7 +49,6 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
     protected static final String LOG_TAG = "IsimUiccRecords";
 
     private static final boolean DBG = true;
-    private static final boolean FORCE_VERBOSE_STATE_LOGGING = false; /* stopship if true */
     private static final boolean VDBG =  FORCE_VERBOSE_STATE_LOGGING ||
             Rlog.isLoggable(LOG_TAG, Log.VERBOSE);
     private static final boolean DUMP_RECORDS = false;  // Note: PII is logged when this is true

@@ -19,6 +19,8 @@ package com.android.internal.telephony.uicc;
 import static android.telephony.TelephonyManager.UNINITIALIZED_CARD_ID;
 import static android.telephony.TelephonyManager.UNSUPPORTED_CARD_ID;
 
+import static com.android.internal.telephony.util.TelephonyUtils.FORCE_VERBOSE_STATE_LOGGING;
+
 import static java.util.Arrays.copyOf;
 
 import android.Manifest;
@@ -131,9 +133,10 @@ import java.util.stream.IntStream;
  * See also {@link com.android.internal.telephony.IccCard}
  */
 public class UiccController extends Handler {
-    private static final boolean DBG = true;
-    private static final boolean VDBG = false; //STOPSHIP if true
     private static final String LOG_TAG = "UiccController";
+    private static final boolean DBG = true;
+    private static final boolean VDBG = FORCE_VERBOSE_STATE_LOGGING ||
+            Rlog.isLoggable(LOG_TAG, Log.VERBOSE);
 
     public static final int INVALID_SLOT_ID = -1;
 
