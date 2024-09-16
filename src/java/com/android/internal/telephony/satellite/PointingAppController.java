@@ -34,6 +34,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.telephony.DropBoxManagerLoggerBackend;
 import android.telephony.PersistentLogger;
 import android.telephony.Rlog;
@@ -426,7 +427,7 @@ public class PointingAppController {
             mLastNeedFullScreenPointingUI = needFullScreenPointingUI;
             mLastIsDemoMode = isDemoMode;
             mLastIsEmergency = isEmergency;
-            mContext.startActivity(launchIntent);
+            mContext.startActivityAsUser(launchIntent, UserHandle.CURRENT);
         } catch (ActivityNotFoundException ex) {
             ploge("startPointingUI: Pointing UI app activity is not found, ex=" + ex);
         }

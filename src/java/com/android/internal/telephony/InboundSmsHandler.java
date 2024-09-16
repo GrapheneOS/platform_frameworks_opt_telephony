@@ -2154,8 +2154,9 @@ public abstract class InboundSmsHandler extends StateMachine {
                 UserManager userManager =
                         (UserManager) context.getSystemService(Context.USER_SERVICE);
                 if (userManager.isUserUnlocked()) {
-                    context.startActivity(context.getPackageManager().getLaunchIntentForPackage(
-                            Telephony.Sms.getDefaultSmsPackage(context)));
+                    context.startActivityAsUser(context.getPackageManager()
+                            .getLaunchIntentForPackage(Telephony.Sms.getDefaultSmsPackage(context)),
+                            UserHandle.CURRENT);
                 }
             }
         }

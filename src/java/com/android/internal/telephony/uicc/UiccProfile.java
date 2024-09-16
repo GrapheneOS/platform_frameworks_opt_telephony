@@ -41,6 +41,7 @@ import android.os.ParcelUuid;
 import android.os.PersistableBundle;
 import android.os.Registrant;
 import android.os.RegistrantList;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
@@ -1356,7 +1357,7 @@ public class UiccProfile extends IccCard {
     private void promptInstallCarrierApp(String pkgName) {
         Intent showDialogIntent = InstallCarrierAppTrampolineActivity.get(mContext, pkgName);
         showDialogIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(showDialogIntent);
+        mContext.startActivityAsUser(showDialogIntent, UserHandle.CURRENT);
     }
 
     private void onCarrierPrivilegesLoadedMessage() {
