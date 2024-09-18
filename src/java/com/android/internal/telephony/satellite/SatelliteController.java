@@ -62,6 +62,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.StatusBarManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -126,6 +127,7 @@ import android.telephony.satellite.SatelliteModemEnableRequestAttributes;
 import android.telephony.satellite.SatelliteSubscriberInfo;
 import android.telephony.satellite.SatelliteSubscriberProvisionStatus;
 import android.telephony.satellite.SatelliteSubscriptionInfo;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -566,6 +568,11 @@ public class SatelliteController extends Handler {
     private String mConfigSatelliteGatewayServicePackage = "";
     private String mConfigSatelliteCarrierRoamingEsosProvisionedClass = "";
 
+    private boolean mIsNotificationShowing = false;
+    private static final String OPEN_MESSAGE_BUTTON = "open_message_button";
+    private static final String HOW_IT_WORKS_BUTTON = "how_it_works_button";
+    private static final String ACTION_NOTIFICATION_CLICK = "action_notification_click";
+    private static final String ACTION_NOTIFICATION_DISMISS = "action_notification_dismiss";
     private BroadcastReceiver
             mDefaultSmsSubscriptionChangedBroadcastReceiver = new BroadcastReceiver() {
                 @Override
@@ -5138,14 +5145,18 @@ public class SatelliteController extends Handler {
         for (Phone phone : PhoneFactory.getPhones()) {
             int subId = phone.getSubId();
             ServiceState serviceState = phone.getServiceState();
-            if (serviceState == null) {
+            if (serviceState == null || subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
                 continue;
             }
 
             synchronized (mSatelliteConnectedLock) {
                 CarrierRoamingSatelliteSessionStats sessionStats =
                         mCarrierRoamingSatelliteSessionStatsMap.get(subId);
-
+                if (DEBUG) {
+                    plogd("handleServiceStateForSatelliteConnectionViaCarrier : SubId = " + subId
+                            + "  isUsingNonTerrestrialNetwork = "
+                            + serviceState.isUsingNonTerrestrialNetwork());
+                }
                 if (serviceState.isUsingNonTerrestrialNetwork()) {
                     if (sessionStats != null) {
                         sessionStats.onSignalStrength(phone);
@@ -5197,7 +5208,6 @@ public class SatelliteController extends Handler {
 
     private void updateLastNotifiedNtnModeAndNotify(@Nullable Phone phone) {
         if (!mFeatureFlags.carrierEnabledSatelliteFlag()) return;
-
         if (phone == null) {
             return;
         }
@@ -5212,6 +5222,9 @@ public class SatelliteController extends Handler {
                 mLastNotifiedNtnMode.put(subId, currNtnMode);
                 phone.notifyCarrierRoamingNtnModeChanged(currNtnMode);
                 logCarrierRoamingSatelliteSessionStats(phone, lastNotifiedNtnMode, currNtnMode);
+                if(mIsNotificationShowing && !currNtnMode) {
+                    dismissSatelliteNotification();
+                }
             }
         }
     }
@@ -5659,27 +5672,29 @@ public class SatelliteController extends Handler {
         }
 
         Pair<Boolean, Integer> isNtn = isUsingNonTerrestrialNetworkViaCarrier();
+        boolean notificationKeyStatus = mSharedPreferences.getBoolean(
+                SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false);
+        if (DEBUG) {
+            logd("determineAutoConnectSystemNotification: isNtn.first = " + isNtn.first
+                    + " IsNotiToShow = " + !notificationKeyStatus + " mIsNotificationShowing = "
+                    + mIsNotificationShowing);
+        }
         if (isNtn.first) {
-            if (mSharedPreferences == null) {
-                try {
-                    mSharedPreferences = mContext.getSharedPreferences(SATELLITE_SHARED_PREF,
-                            Context.MODE_PRIVATE);
-                } catch (Exception e) {
-                    loge("Cannot get default shared preferences: " + e);
-                }
-            }
-            if (mSharedPreferences == null) {
-                loge("determineSystemNotification: Cannot get default shared preferences");
-                return;
-            }
-            if (!mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false)) {
+            if (!notificationKeyStatus) {
                 updateSatelliteSystemNotification(isNtn.second,
                         CarrierConfigManager.CARRIER_ROAMING_NTN_CONNECT_AUTOMATIC,
                         /*visible*/ true);
-                mSharedPreferences.edit().putBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY,
-                        true).apply();
             }
+        } else if (mIsNotificationShowing
+                && !isSatelliteConnectedViaCarrierWithinHysteresisTime()) {
+            // Dismiss the notification if it is still displaying.
+            dismissSatelliteNotification();
         }
+    }
+
+    private void dismissSatelliteNotification() {
+        mIsNotificationShowing = false;
+        updateSatelliteSystemNotification(-1, -1,/*visible*/ false);
     }
 
     /**
@@ -5695,15 +5710,13 @@ public class SatelliteController extends Handler {
      */
     private void updateSatelliteSystemNotification(int subId,
             @CARRIER_ROAMING_NTN_CONNECT_TYPE int carrierRoamingNtnConnectType, boolean visible) {
-        plogd("updateSatelliteSystemNotification subId=" + subId
-                + ", carrierRoamingNtnConnectType=" + SatelliteServiceUtils
-                .carrierRoamingNtnConnectTypeToString(carrierRoamingNtnConnectType)
-                + ", visible=" + visible);
+        plogd("updateSatelliteSystemNotification subId=" + subId + ", carrierRoamingNtnConnectType="
+                + SatelliteServiceUtils.carrierRoamingNtnConnectTypeToString(
+                carrierRoamingNtnConnectType) + ", visible=" + visible);
         final NotificationChannel notificationChannel = new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
                 NOTIFICATION_CHANNEL,
-                NotificationManager.IMPORTANCE_DEFAULT
-        );
+                NotificationManager.IMPORTANCE_DEFAULT);
         notificationChannel.setSound(null, null);
         NotificationManager notificationManager = mContext.getSystemService(
                 NotificationManager.class);
@@ -5736,52 +5749,128 @@ public class SatelliteController extends Handler {
                         com.android.internal.R.color.system_notification_accent_color))
                 .setVisibility(Notification.VISIBILITY_PUBLIC);
 
-        // Add action to invoke message application.
-        // getDefaultSmsPackage and getLaunchIntentForPackage are nullable.
-        Optional<Intent> nullableIntent = Optional.ofNullable(
-                        Telephony.Sms.getDefaultSmsPackage(mContext))
-                .flatMap(packageName -> {
-                    PackageManager pm = mContext.getPackageManager();
-                    return Optional.ofNullable(pm.getLaunchIntentForPackage(packageName));
-                });
-        // If nullableIntent is null, create new Intent for most common way to invoke message app.
-        Intent finalIntent = nullableIntent.map(intent -> {
-            // Invoke the home screen of default message application.
-            intent.setAction(Intent.ACTION_MAIN);
-            intent.addCategory(Intent.CATEGORY_HOME);
-            return intent;
-        }).orElseGet(() -> {
-            ploge("showSatelliteSystemNotification: no default sms package name, Invoke "
-                    + "default sms compose window instead");
-            Intent newIntent = new Intent(Intent.ACTION_VIEW);
-            newIntent.setData(Uri.parse("sms:"));
-            return newIntent;
-        });
-
-        PendingIntent pendingIntentOpenMessage = PendingIntent.getActivity(mContext, 0,
-                finalIntent, PendingIntent.FLAG_IMMUTABLE);
+        // Intent for `Open Messages` [Button 1]
+        Intent openMessageIntent = new Intent();
+        openMessageIntent.setAction(OPEN_MESSAGE_BUTTON);
+        PendingIntent openMessagePendingIntent = PendingIntent.getBroadcast(mContext, 0,
+                openMessageIntent, PendingIntent.FLAG_IMMUTABLE);
         Notification.Action actionOpenMessage = new Notification.Action.Builder(0,
                 mContext.getResources().getString(R.string.satellite_notification_open_message),
-                pendingIntentOpenMessage).build();
-        notificationBuilder.addAction(actionOpenMessage);
+                openMessagePendingIntent).build();
+        notificationBuilder.addAction(actionOpenMessage);   // Handle `Open Messages` button
 
-        // Add action to invoke Satellite setting activity in Settings.
-        Intent intentSatelliteSetting = new Intent(ACTION_SATELLITE_SETTING);
-        intentSatelliteSetting.putExtra("sub_id", subId);
-        PendingIntent pendingIntentSatelliteSetting = PendingIntent.getActivity(mContext, 0,
-                intentSatelliteSetting, PendingIntent.FLAG_IMMUTABLE);
-
-        Notification.Action actionOpenSatelliteSetting = new Notification.Action.Builder(null,
+        // Button for `How it works` [Button 2]
+        Intent howItWorksIntent = new Intent();
+        howItWorksIntent.setAction(HOW_IT_WORKS_BUTTON);
+        howItWorksIntent.putExtra("SUBID", subId);
+        PendingIntent howItWorksPendingIntent = PendingIntent.getBroadcast(mContext, 0,
+                howItWorksIntent, PendingIntent.FLAG_IMMUTABLE);
+        Notification.Action actionHowItWorks = new Notification.Action.Builder(0,
                 mContext.getResources().getString(R.string.satellite_notification_how_it_works),
-                pendingIntentSatelliteSetting).build();
-        notificationBuilder.addAction(actionOpenSatelliteSetting);
+                howItWorksPendingIntent).build();
+        notificationBuilder.addAction(actionHowItWorks);    // Handle `How it works` button
+
+        // Intent for clicking the main notification body
+        Intent notificationClickIntent = new Intent(ACTION_NOTIFICATION_CLICK);
+        PendingIntent notificationClickPendingIntent = PendingIntent.getBroadcast(mContext, 0,
+                notificationClickIntent, PendingIntent.FLAG_IMMUTABLE);
+        notificationBuilder.setContentIntent(
+                notificationClickPendingIntent); // Handle notification body click
+
+        // Intent for dismissing/swiping the notification
+        Intent deleteIntent = new Intent(ACTION_NOTIFICATION_DISMISS);
+        PendingIntent deletePendingIntent = PendingIntent.getBroadcast(mContext, 0, deleteIntent,
+                PendingIntent.FLAG_IMMUTABLE);
+        notificationBuilder.setDeleteIntent(
+                deletePendingIntent);  // Handle notification swipe/dismiss
 
         notificationManager.notifyAsUser(NOTIFICATION_TAG, NOTIFICATION_ID,
                 notificationBuilder.build(), UserHandle.ALL);
 
+        // The Intent filter is to receive the above four events.
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(OPEN_MESSAGE_BUTTON);
+        filter.addAction(HOW_IT_WORKS_BUTTON);
+        filter.addAction(ACTION_NOTIFICATION_CLICK);
+        filter.addAction(ACTION_NOTIFICATION_DISMISS);
+        mContext.registerReceiver(mNotificationInteractionBroadcastReceiver, filter,
+                Context.RECEIVER_EXPORTED);
+
+        mIsNotificationShowing = true;
         mCarrierRoamingSatelliteControllerStats.reportCountOfSatelliteNotificationDisplayed();
         mCarrierRoamingSatelliteControllerStats.reportCarrierId(getSatelliteCarrierId());
         mSessionMetricsStats.addCountOfSatelliteNotificationDisplayed();
+    }
+
+    private final BroadcastReceiver mNotificationInteractionBroadcastReceiver =
+            new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent receivedIntent) {
+                    String intentAction = receivedIntent.getAction();
+                    if (TextUtils.isEmpty(intentAction)) {
+                        loge("Received empty action from the notification");
+                        return;
+                    }
+                    if (DBG) {
+                        plogd("Notification Broadcast recvd action = "
+                                + receivedIntent.getAction());
+                    }
+                    boolean closeStatusBar = true;
+                    switch (intentAction) {
+                        case OPEN_MESSAGE_BUTTON -> {
+                            // Add action to invoke message application.
+                            // getDefaultSmsPackage and getLaunchIntentForPackage are nullable.
+                            Optional<Intent> nullableIntent = Optional.ofNullable(
+                                    Telephony.Sms.getDefaultSmsPackage(context)).flatMap(
+                                    packageName -> {
+                                        PackageManager pm = context.getPackageManager();
+                                        return Optional.ofNullable(
+                                                pm.getLaunchIntentForPackage(packageName));
+                                    });
+                            // If nullableIntent is null, create new Intent for most common way to
+                            // invoke
+                            // message app.
+                            Intent finalIntent = nullableIntent.map(intent -> {
+                                // Invoke the home screen of default message application.
+                                intent.setAction(Intent.ACTION_MAIN);
+                                intent.addCategory(Intent.CATEGORY_HOME);
+                                return intent;
+                            }).orElseGet(() -> {
+                                ploge("showSatelliteSystemNotification: no default sms package "
+                                        + "name, Invoke default sms compose window instead");
+                                Intent newIntent = new Intent(Intent.ACTION_VIEW);
+                                newIntent.setData(Uri.parse("sms:"));
+                                return newIntent;
+                            });
+                            context.startActivity(finalIntent);
+                        }
+                        case HOW_IT_WORKS_BUTTON -> {
+                            int subId = receivedIntent.getIntExtra("SUBID", -1);
+                            Intent intentSatelliteSetting = new Intent(ACTION_SATELLITE_SETTING);
+                            intentSatelliteSetting.putExtra("sub_id", subId);
+                            intentSatelliteSetting.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(intentSatelliteSetting);
+
+                        }
+                        case ACTION_NOTIFICATION_DISMISS -> closeStatusBar = false;
+                    }
+                    // Note : ACTION_NOTIFICATION_DISMISS is not required to handled
+                    dismissNotificationAndUpdatePref(closeStatusBar);
+                }
+            };
+
+    private void dismissNotificationAndUpdatePref(boolean closeStatusBar) {
+        dismissSatelliteNotification();
+        if (closeStatusBar) {
+            // Collapse the status bar once user interact with notification.
+            StatusBarManager statusBarManager = mContext.getSystemService(StatusBarManager.class);
+            if (statusBarManager != null) {
+                statusBarManager.collapsePanels();
+            }
+        }
+        // update the sharedpref only when user interacted with the notification.
+        mSharedPreferences.edit().putBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, true).apply();
+        mContext.unregisterReceiver(mNotificationInteractionBroadcastReceiver);
     }
 
     private void resetCarrierRoamingSatelliteModeParams() {

@@ -3593,12 +3593,14 @@ public class SatelliteControllerTest extends TelephonyTest {
         processAllMessages();
         verify(mMockNotificationManager, times(1)).notifyAsUser(anyString(), anyInt(), any(),
                 any());
-        assertTrue(mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
+        // Just by showing notification we do not update the pref file , only once user interact
+        // only we will update the pref value to true.
+        assertFalse(mSharedPreferences.getBoolean(SATELLITE_SYSTEM_NOTIFICATION_DONE_KEY, false));
 
         // Check don't display again after displayed already a system notification.
         sendServiceStateChangedEvent();
         processAllMessages();
-        verify(mMockNotificationManager, times(1)).notifyAsUser(anyString(), anyInt(), any(),
+        verify(mMockNotificationManager, times(2)).notifyAsUser(anyString(), anyInt(), any(),
                 any());
     }
 
@@ -4116,7 +4118,7 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertTrue(mSatelliteControllerUT.isCarrierRoamingNtnEligible(mPhone));
         verify(mPhone, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(eq(true));
         verify(mPhone2, times(0)).notifyCarrierRoamingNtnEligibleStateChanged(anyBoolean());
-        verify(mMockNotificationManager, times(1)).cancelAsUser(anyString(), anyInt(),
+        verify(mMockNotificationManager, times(2)).cancelAsUser(anyString(), anyInt(),
                 any());
     }
 
