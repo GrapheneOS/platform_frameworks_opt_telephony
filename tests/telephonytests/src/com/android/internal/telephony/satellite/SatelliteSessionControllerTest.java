@@ -1488,6 +1488,11 @@ public class SatelliteSessionControllerTest extends TelephonyTest {
             }
         }
 
+        @Override
+        public void onRegistrationFailure(int causeCode) {
+            logd("onRegistrationFailure: causeCode=" + causeCode);
+        }
+
         public boolean waitUntilResultForModemStateChanged() {
             try {
                 if (!mSemaphoreForModemStateChanged.tryAcquire(EVENT_PROCESSING_TIME_MILLIS,

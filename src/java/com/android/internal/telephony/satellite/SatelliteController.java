@@ -261,6 +261,7 @@ public class SatelliteController extends Handler {
     protected static final int
             EVENT_WAIT_FOR_UPDATE_SATELLITE_ENABLE_ATTRIBUTES_RESPONSE_TIMED_OUT = 52;
     private static final int EVENT_WAIT_FOR_REPORT_ENTITLED_TO_MERTICS_HYSTERESIS_TIMED_OUT = 53;
+    protected static final int EVENT_SATELLITE_REGISTRATION_FAILURE = 54;
 
     @NonNull private static SatelliteController sInstance;
     @NonNull private final Context mContext;
@@ -341,6 +342,8 @@ public class SatelliteController extends Handler {
             new AtomicBoolean(false);
     private final AtomicBoolean mRegisteredForSatelliteSupportedStateChanged =
             new AtomicBoolean(false);
+    private final AtomicBoolean mRegisteredForSatelliteRegistrationFailure =
+            new AtomicBoolean(false);
     /**
      * Map key: subId, value: callback to get error code of the provision request.
      */
@@ -369,6 +372,12 @@ public class SatelliteController extends Handler {
      */
     private final ConcurrentHashMap<IBinder, ISatelliteSupportedStateCallback>
             mSatelliteSupportedStateChangedListeners = new ConcurrentHashMap<>();
+
+    /**
+     * Map key: binder of the callback, value: callback to satellite registration failure
+     */
+    private final ConcurrentHashMap<IBinder, ISatelliteModemStateCallback>
+            mSatelliteRegistrationFailureListeners = new ConcurrentHashMap<>();
     private final Object mIsSatelliteSupportedLock = new Object();
     @GuardedBy("mIsSatelliteSupportedLock")
     private Boolean mIsSatelliteSupported = null;
@@ -1790,6 +1799,15 @@ public class SatelliteController extends Handler {
                 break;
             }
 
+            case EVENT_SATELLITE_REGISTRATION_FAILURE:
+                ar = (AsyncResult) msg.obj;
+                if (ar.result == null) {
+                    loge("EVENT_SATELLITE_REGISTRATION_FAILURE: result is null");
+                } else {
+                    handleEventSatelliteRegistrationFailure((int) ar.result);
+                }
+                break;
+
             default:
                 Log.w(TAG, "SatelliteControllerHandler: unexpected message code: " +
                         msg.what);
@@ -2426,6 +2444,10 @@ public class SatelliteController extends Handler {
             plogd("registerForSatelliteModemStateChanged: oemEnabledSatelliteFlag is disabled");
             return SatelliteManager.SATELLITE_RESULT_NOT_SUPPORTED;
         }
+        if (mFeatureFlags.carrierRoamingNbIotNtn()) {
+            plogd("registerForSatelliteModemStateChanged: add RegistrationFailure Listeners");
+            mSatelliteRegistrationFailureListeners.put(callback.asBinder(), callback);
+        }
         if (mSatelliteSessionController != null) {
             mSatelliteSessionController.registerForSatelliteModemStateChanged(callback);
         } else {
@@ -2454,6 +2476,10 @@ public class SatelliteController extends Handler {
         } else {
             ploge("unregisterForModemStateChanged: mSatelliteSessionController"
                     + " is not initialized yet");
+        }
+        if (mFeatureFlags.carrierRoamingNbIotNtn()) {
+            plogd("unregisterForModemStateChanged: remove RegistrationFailure Listeners");
+            mSatelliteRegistrationFailureListeners.remove(callback.asBinder());
         }
     }
 
@@ -3892,6 +3918,7 @@ public class SatelliteController extends Handler {
             registerForSatelliteModemStateChanged();
             registerForNtnSignalStrengthChanged();
             registerForCapabilitiesChanged();
+            registerForSatelliteRegistrationFailure();
 
             requestIsSatelliteProvisioned(
                     new ResultReceiver(this) {
@@ -3992,6 +4019,16 @@ public class SatelliteController extends Handler {
                 mSatelliteModemInterface.registerForSatelliteSupportedStateChanged(
                         this, EVENT_SATELLITE_SUPPORTED_STATE_CHANGED, null);
                 mRegisteredForSatelliteSupportedStateChanged.set(true);
+            }
+        }
+    }
+
+    private void registerForSatelliteRegistrationFailure() {
+        if (mFeatureFlags.carrierRoamingNbIotNtn()) {
+            if (!mRegisteredForSatelliteRegistrationFailure.get()) {
+                mSatelliteModemInterface.registerForSatelliteRegistrationFailure(this,
+                        EVENT_SATELLITE_REGISTRATION_FAILURE, null);
+                mRegisteredForSatelliteRegistrationFailure.set(true);
             }
         }
     }
@@ -6492,6 +6529,23 @@ public class SatelliteController extends Handler {
                 mNtnEligibilityHysteresisTimedOut = false;
             }
         }
+    }
+
+    private void handleEventSatelliteRegistrationFailure(int causeCode) {
+        plogd("handleEventSatelliteRegistrationFailure: " + causeCode);
+
+        List<ISatelliteModemStateCallback> deadCallersList = new ArrayList<>();
+        mSatelliteRegistrationFailureListeners.values().forEach(listener -> {
+            try {
+                listener.onRegistrationFailure(causeCode);
+            } catch (RemoteException e) {
+                logd("handleEventSatelliteRegistrationFailure RemoteException: " + e);
+                deadCallersList.add(listener);
+            }
+        });
+        deadCallersList.forEach(listener -> {
+            mSatelliteRegistrationFailureListeners.remove(listener.asBinder());
+        });
     }
 
     /**

@@ -102,6 +102,8 @@ public class SatelliteModemInterface {
             new RegistrantList();
     @NonNull private final RegistrantList mSatelliteSupportedStateChangedRegistrants =
             new RegistrantList();
+    @NonNull private final RegistrantList mSatelliteRegistrationFailureRegistrants =
+            new RegistrantList();
 
     private class SatelliteListener extends ISatelliteListener.Stub {
 
@@ -187,7 +189,7 @@ public class SatelliteModemInterface {
 
         @Override
         public void onRegistrationFailure(int causeCode) {
-            // TO-DO notify registrants
+            mSatelliteRegistrationFailureRegistrants.notifyResult(causeCode);
         }
 
         private boolean notifyResultIfExpectedListener() {
@@ -561,6 +563,27 @@ public class SatelliteModemInterface {
      */
     public void unregisterForSatelliteSupportedStateChanged(@NonNull Handler h) {
         mSatelliteSupportedStateChangedRegistrants.remove(h);
+    }
+
+    /**
+     * Registers for the satellite registration failed.
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForSatelliteRegistrationFailure(
+            @NonNull Handler h, int what, @Nullable Object obj) {
+        mSatelliteRegistrationFailureRegistrants.add(h, what, obj);
+    }
+
+    /**
+     * Unregisters for the satellite registration failed.
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForSatelliteRegistrationFailure(@NonNull Handler h) {
+        mSatelliteRegistrationFailureRegistrants.remove(h);
     }
 
     /**

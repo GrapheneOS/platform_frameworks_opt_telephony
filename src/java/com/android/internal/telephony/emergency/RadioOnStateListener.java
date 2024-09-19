@@ -152,6 +152,11 @@ public class RadioOnStateListener {
         public void onEmergencyModeChanged(boolean isEmergency) {
             Rlog.d(TAG, "onEmergencyModeChanged: ignored " + isEmergency);
         }
+
+        @Override
+        public void onRegistrationFailure(int causeCode) {
+            Rlog.d(TAG, "onRegistrationFailure: causeCode " + causeCode);
+        }
     };
 
     private Callback mCallback; // The callback to notify upon completion.

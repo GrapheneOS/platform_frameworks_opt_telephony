@@ -1636,6 +1636,11 @@ public class SatelliteControllerTest extends TelephonyTest {
             public void onEmergencyModeChanged(boolean isEmergency) {
                 logd("onEmergencyModeChanged: emergency=" + isEmergency);
             }
+
+            @Override
+            public void onRegistrationFailure(int causeCode) {
+                logd("onRegistrationFailure: causeCode=" + causeCode);
+            }
         };
         int errorCode = mSatelliteControllerUT.registerForSatelliteModemStateChanged(callback);
         assertEquals(SATELLITE_RESULT_INVALID_TELEPHONY_STATE, errorCode);
@@ -1661,6 +1666,11 @@ public class SatelliteControllerTest extends TelephonyTest {
             @Override
             public void onEmergencyModeChanged(boolean isEmergency) {
                 logd("onEmergencyModeChanged: emergency=" + isEmergency);
+            }
+
+            @Override
+            public void onRegistrationFailure(int causeCode) {
+                logd("onRegistrationFailure: causeCode=" + causeCode);
             }
         };
         mSatelliteControllerUT.unregisterForModemStateChanged(callback);
@@ -4189,6 +4199,46 @@ public class SatelliteControllerTest extends TelephonyTest {
         assertFalse(mSatelliteControllerUT.getWwanIsInService(mServiceState));
     }
 
+    @Test
+    public void testRegistrationFailureCallback() {
+        when(mFeatureFlags.carrierRoamingNbIotNtn()).thenReturn(true);
+        Semaphore semaphore = new Semaphore(0);
+        final int[] resultErrorCode = new int[1];
+        ISatelliteModemStateCallback callback = new ISatelliteModemStateCallback.Stub() {
+            @Override
+            public void onSatelliteModemStateChanged(int state) {
+                logd("onSatelliteModemStateChanged: state=" + state);
+            }
+
+            @Override
+            public void onEmergencyModeChanged(boolean isEmergency) {
+                logd("onEmergencyModeChanged: emergency=" + isEmergency);
+            }
+
+            @Override
+            public void onRegistrationFailure(int causeCode) {
+                logd("onRegistrationFailure: causeCode=" + causeCode);
+                resultErrorCode[0] = causeCode;
+                semaphore.release();
+            }
+        };
+        resetSatelliteControllerUTToSupportedAndProvisionedState();
+        mSatelliteControllerUT.setSatelliteSessionController(mMockSatelliteSessionController);
+
+        int RegisterErrorCode = mSatelliteControllerUT.registerForSatelliteModemStateChanged(
+                callback);
+        assertEquals(SATELLITE_RESULT_SUCCESS, RegisterErrorCode);
+        verify(mMockSatelliteSessionController).registerForSatelliteModemStateChanged(callback);
+
+        int expectedErrorCode = 100;
+        mIIntegerConsumerResults.clear();
+        sendSatelliteRegistrationFailureEvent(100, null);
+        processAllMessages();
+        assertTrue(waitForForEvents(
+                semaphore, 1, "testRegistrationFailureCallback"));
+        assertEquals(expectedErrorCode, resultErrorCode[0]);
+    }
+
     private boolean mProvisionState = false;
     private int mProvisionSateResultCode = -1;
     private Semaphore mProvisionSateSemaphore = new Semaphore(0);
@@ -5106,6 +5156,13 @@ public class SatelliteControllerTest extends TelephonyTest {
         Message msg = mSatelliteControllerUT.obtainMessage(
                 41 /* EVENT_SATELLITE_SUPPORTED_STATE_CHANGED */);
         msg.obj = new AsyncResult(null, supported, exception);
+        msg.sendToTarget();
+    }
+
+    private void sendSatelliteRegistrationFailureEvent(int errorCode, Throwable exception) {
+        Message msg = mSatelliteControllerUT.obtainMessage(
+                54 /* EVENT_SATELLITE_REGISTRATION_FAILURE */);
+        msg.obj = new AsyncResult(null, errorCode, exception);
         msg.sendToTarget();
     }
 
