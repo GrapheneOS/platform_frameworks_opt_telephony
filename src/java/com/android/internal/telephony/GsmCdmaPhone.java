@@ -391,7 +391,8 @@ public class GsmCdmaPhone extends Phone {
 
         mCarrierResolver = mTelephonyComponentFactory.inject(CarrierResolver.class.getName())
                 .makeCarrierResolver(this, featureFlags);
-        mCarrierPrivilegesTracker = new CarrierPrivilegesTracker(Looper.myLooper(), this, context);
+        mCarrierPrivilegesTracker = new CarrierPrivilegesTracker(Looper.myLooper(), this, context,
+                featureFlags);
 
         getCarrierActionAgent().registerForCarrierAction(
                 CarrierActionAgent.CARRIER_ACTION_SET_METERED_APNS_ENABLED, this,

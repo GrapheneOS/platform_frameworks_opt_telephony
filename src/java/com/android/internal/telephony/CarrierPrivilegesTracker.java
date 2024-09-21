@@ -31,6 +31,7 @@ import static android.telephony.TelephonyManager.SIM_STATE_UNKNOWN;
 import android.annotation.ElapsedRealtimeLong;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -66,6 +67,7 @@ import android.util.LocalLog;
 import android.util.Pair;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.telephony.flags.FeatureFlags;
 import com.android.internal.telephony.uicc.IccUtils;
 import com.android.internal.telephony.uicc.UiccPort;
 import com.android.internal.telephony.uicc.UiccProfile;
@@ -93,6 +95,7 @@ import java.util.function.Function;
  * Registered Telephony entities will receive notifications when the UIDs with these privileges
  * change.
  */
+@SuppressLint("MissingPermission")
 public class CarrierPrivilegesTracker extends Handler {
     private static final String TAG = CarrierPrivilegesTracker.class.getSimpleName();
 
@@ -223,6 +226,9 @@ public class CarrierPrivilegesTracker extends Handler {
             "mPrivilegedPackageInfoLock.writeLock()"})
     private boolean mSimIsReadyButNotLoaded = false;
 
+    @NonNull
+    private final FeatureFlags mFeatureFlags;
+
     /** Small snapshot to hold package names and UIDs of privileged packages. */
     private static final class PrivilegedPackageInfo {
         @NonNull final Set<String> mPackageNames;
@@ -316,7 +322,7 @@ public class CarrierPrivilegesTracker extends Handler {
                             boolean notExist = false;
                             try {
                                 disabledByUser = action.equals(Intent.ACTION_PACKAGE_CHANGED)
-                                        && mPackageManager.getApplicationEnabledSetting(pkgName)
+                                        && getApplicationEnabledSetting(pkgName)
                                         == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER;
                             } catch (IllegalArgumentException iae) {
                                 // Very rare case when package changed race with package removed
@@ -336,10 +342,11 @@ public class CarrierPrivilegesTracker extends Handler {
                 }
             };
 
-    public CarrierPrivilegesTracker(
-            @NonNull Looper looper, @NonNull Phone phone, @NonNull Context context) {
+    public CarrierPrivilegesTracker(@NonNull Looper looper, @NonNull Phone phone,
+            @NonNull Context context, @NonNull FeatureFlags flags) {
         super(looper);
         mContext = context;
+        mFeatureFlags = flags;
         mPhone = phone;
         mPackageManager = mContext.getPackageManager();
         mUserManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
@@ -359,7 +366,13 @@ public class CarrierPrivilegesTracker extends Handler {
         IntentFilter certFilter = new IntentFilter();
         certFilter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
         certFilter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
-        mContext.registerReceiver(mIntentReceiver, certFilter);
+        if (mFeatureFlags.supportCarrierServicesForHsum()) {
+            mContext.registerReceiverAsUser(
+                    mIntentReceiver, UserHandle.of(ActivityManager.getCurrentUser()), certFilter,
+                    /* broadcastPermission= */ null, /* scheduler= */ null);
+        } else {
+            mContext.registerReceiver(mIntentReceiver, certFilter);
+        }
 
         IntentFilter packageFilter = new IntentFilter();
         packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -370,7 +383,13 @@ public class CarrierPrivilegesTracker extends Handler {
         // For package-related broadcasts, specify the data scheme for "package" to receive the
         // package name along with the broadcast
         packageFilter.addDataScheme("package");
-        mContext.registerReceiver(mIntentReceiver, packageFilter);
+        if (mFeatureFlags.supportCarrierServicesForHsum()) {
+            mContext.registerReceiverAsUser(
+                    mIntentReceiver, UserHandle.of(ActivityManager.getCurrentUser()), packageFilter,
+                    /* broadcastPermission= */ null, /* scheduler= */ null);
+        } else {
+            mContext.registerReceiver(mIntentReceiver, packageFilter);
+        }
 
         sendMessage(obtainMessage(ACTION_INITIALIZE_TRACKER));
     }
@@ -542,7 +561,14 @@ public class CarrierPrivilegesTracker extends Handler {
 
         PackageInfo pkg;
         try {
-            pkg = mPackageManager.getPackageInfo(pkgName, INSTALLED_PACKAGES_QUERY_FLAGS);
+            pkg =
+                    mFeatureFlags.supportCarrierServicesForHsum()
+                            ? mPackageManager.getPackageInfoAsUser(
+                                    pkgName,
+                                    INSTALLED_PACKAGES_QUERY_FLAGS,
+                                    ActivityManager.getCurrentUser())
+                            : mPackageManager.getPackageInfo(
+                                    pkgName, INSTALLED_PACKAGES_QUERY_FLAGS);
         } catch (NameNotFoundException e) {
             Rlog.e(TAG, "Error getting installed package: " + pkgName, e);
             return;
@@ -620,7 +646,10 @@ public class CarrierPrivilegesTracker extends Handler {
     private void refreshInstalledPackageCache() {
         List<PackageInfo> installedPackages =
                 mPackageManager.getInstalledPackagesAsUser(
-                        INSTALLED_PACKAGES_QUERY_FLAGS, UserHandle.SYSTEM.getIdentifier());
+                        INSTALLED_PACKAGES_QUERY_FLAGS,
+                        mFeatureFlags.supportCarrierServicesForHsum()
+                                ? ActivityManager.getCurrentUser()
+                                : UserHandle.SYSTEM.getIdentifier());
         for (PackageInfo pkg : installedPackages) {
             updateCertsForPackage(pkg);
             // This may be unnecessary before initialization, but invalidate the cache all the time
@@ -794,7 +823,9 @@ public class CarrierPrivilegesTracker extends Handler {
     private int getPackageUid(@Nullable String pkgName) {
         int uid = Process.INVALID_UID;
         try {
-            uid = mPackageManager.getPackageUid(pkgName, /* flags= */0);
+            uid = mFeatureFlags.supportCarrierServicesForHsum()
+                    ? mPackageManager.getPackageUidAsUser(pkgName, ActivityManager.getCurrentUser())
+                    : mPackageManager.getPackageUid(pkgName, /* flags= */0);
         } catch (NameNotFoundException e) {
             Rlog.e(TAG, "Unable to find uid for package " + pkgName);
         }
@@ -994,10 +1025,25 @@ public class CarrierPrivilegesTracker extends Handler {
         // Do the PackageManager queries before we take the lock, as these are the longest-running
         // pieces of this method and don't depend on the set of carrier apps.
         List<ResolveInfo> resolveInfos = new ArrayList<>();
-        resolveInfos.addAll(mPackageManager.queryBroadcastReceivers(intent, 0));
-        resolveInfos.addAll(mPackageManager.queryIntentActivities(intent, 0));
-        resolveInfos.addAll(mPackageManager.queryIntentServices(intent, 0));
-        resolveInfos.addAll(mPackageManager.queryIntentContentProviders(intent, 0));
+        if (mFeatureFlags.supportCarrierServicesForHsum()) {
+            resolveInfos.addAll(
+                    mPackageManager.queryBroadcastReceiversAsUser(
+                            intent, /* flags= */ 0, ActivityManager.getCurrentUser()));
+            resolveInfos.addAll(
+                    mPackageManager.queryIntentActivitiesAsUser(
+                            intent, /* flags= */ 0, ActivityManager.getCurrentUser()));
+            resolveInfos.addAll(
+                    mPackageManager.queryIntentServicesAsUser(
+                            intent, /* flags= */ 0, ActivityManager.getCurrentUser()));
+            resolveInfos.addAll(
+                    mPackageManager.queryIntentContentProvidersAsUser(
+                            intent, /* flags= */ 0, ActivityManager.getCurrentUser()));
+        } else {
+            resolveInfos.addAll(mPackageManager.queryBroadcastReceivers(intent, 0));
+            resolveInfos.addAll(mPackageManager.queryIntentActivities(intent, 0));
+            resolveInfos.addAll(mPackageManager.queryIntentServices(intent, 0));
+            resolveInfos.addAll(mPackageManager.queryIntentContentProviders(intent, 0));
+        }
 
         // Now actually check which of the resolved packages have carrier privileges.
         mPrivilegedPackageInfoLock.readLock().lock();
@@ -1031,8 +1077,15 @@ public class CarrierPrivilegesTracker extends Handler {
 
     @NonNull
     private Pair<String, Integer> getCarrierService(@NonNull Set<String> simPrivilegedPackages) {
-        List<ResolveInfo> carrierServiceResolveInfos = mPackageManager.queryIntentServices(
-                new Intent(CarrierService.CARRIER_SERVICE_INTERFACE), /* flags= */ 0);
+        List<ResolveInfo> carrierServiceResolveInfos =
+                mFeatureFlags.supportCarrierServicesForHsum()
+                        ? mPackageManager.queryIntentServicesAsUser(
+                                new Intent(CarrierService.CARRIER_SERVICE_INTERFACE),
+                                /* flags= */ 0,
+                                ActivityManager.getCurrentUser())
+                        : mPackageManager.queryIntentServices(
+                                new Intent(CarrierService.CARRIER_SERVICE_INTERFACE),
+                                /* flags= */ 0);
         String carrierServicePackageName = null;
         for (ResolveInfo resolveInfo : carrierServiceResolveInfos) {
             String packageName = getPackageName(resolveInfo);
@@ -1049,5 +1102,17 @@ public class CarrierPrivilegesTracker extends Handler {
         return carrierServicePackageName == null
                 ? new Pair<>(null, Process.INVALID_UID)
                 : new Pair<>(carrierServicePackageName, getPackageUid(carrierServicePackageName));
+    }
+
+    private @PackageManager.EnabledState int getApplicationEnabledSetting(
+            @NonNull String packageName) {
+        if (mFeatureFlags.supportCarrierServicesForHsum()) {
+            return mContext.createContextAsUser(
+                            UserHandle.of(ActivityManager.getCurrentUser()), /* flags= */ 0)
+                    .getPackageManager()
+                    .getApplicationEnabledSetting(packageName);
+        } else {
+            return mPackageManager.getApplicationEnabledSetting(packageName);
+        }
     }
 }

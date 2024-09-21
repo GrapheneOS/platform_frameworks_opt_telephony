@@ -206,3 +206,14 @@ flag {
         purpose: PURPOSE_BUGFIX
     }
 }
+
+# OWNER=rambowang TARGET=25Q2
+flag {
+    name: "support_carrier_services_for_hsum"
+    namespace: "telephony"
+    description: "Support Carrier Services (APIs) for HSUM."
+    bug:"345522246"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+}

@@ -549,9 +549,22 @@ public class SatelliteSOSMessageRecommenderTest extends TelephonyTest {
         assertEquals(TEST_EMERGENCY_CALL_TO_SOS_MSG_HYSTERESIS_TIMEOUT_MILLIS,
                 mTestSOSMessageRecommender.getTimeOutMillis());
 
-        // Both OEM and carrier support satellite. Thus, carrier's timeout duration will be used
+        // Both OEM and carrier support satellite, but device is not connected to carrier satellite
+        // within hysteresis time. Thus, OEM timer will be used.
         long carrierTimeoutMillis = 1000;
         mTestSatelliteController.isSatelliteEmergencyMessagingSupportedViaCarrier = true;
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(false);
+        mTestSatelliteController.carrierEmergencyCallWaitForConnectionTimeoutMillis =
+                carrierTimeoutMillis;
+        mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);
+        processAllMessages();
+        assertEquals(TEST_EMERGENCY_CALL_TO_SOS_MSG_HYSTERESIS_TIMEOUT_MILLIS,
+                mTestSOSMessageRecommender.getTimeOutMillis());
+
+        // Both OEM and carrier support satellite, and device is connected to carrier satellite
+        // within hysteresis time. Thus, carrier timer will be used.
+        mTestSatelliteController.isSatelliteEmergencyMessagingSupportedViaCarrier = true;
+        mTestSatelliteController.setSatelliteConnectedViaCarrierWithinHysteresisTime(true);
         mTestSatelliteController.carrierEmergencyCallWaitForConnectionTimeoutMillis =
                 carrierTimeoutMillis;
         mTestSOSMessageRecommender.onEmergencyCallStarted(mTestConnection);

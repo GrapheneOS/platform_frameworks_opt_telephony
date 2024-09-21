@@ -898,6 +898,8 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
                         Rlog.e(mLogTag, "Invalid Exception for usage setting " + ar.exception);
                         break; // technically extraneous, but good hygiene
                     }
+                } else {
+                    mUsageSettingFromModem = msg.arg1;
                 }
                 break;
             default:
@@ -4484,7 +4486,8 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             mCi.getUsageSetting(obtainMessage(EVENT_GET_USAGE_SETTING_DONE));
             // If the modem value is already known, and the value has changed, proceed to update.
         } else if (mPreferredUsageSetting != mUsageSettingFromModem) {
-            mCi.setUsageSetting(obtainMessage(EVENT_SET_USAGE_SETTING_DONE),
+            mCi.setUsageSetting(obtainMessage(EVENT_SET_USAGE_SETTING_DONE,
+                        mPreferredUsageSetting, 0 /* unused */),
                     mPreferredUsageSetting);
         }
         return true;

@@ -2264,12 +2264,6 @@ public class SatelliteController extends Handler {
     public void stopSatelliteTransmissionUpdates(@NonNull IIntegerConsumer errorCallback,
             @NonNull ISatelliteTransmissionUpdateCallback callback) {
         Consumer<Integer> result = FunctionalUtils.ignoreRemoteException(errorCallback::accept);
-        int error = evaluateOemSatelliteRequestAllowed(true);
-        if (error != SATELLITE_RESULT_SUCCESS) {
-            result.accept(error);
-            return;
-        }
-
         mPointingAppController.unregisterForSatelliteTransmissionUpdates(
                 getHighestPrioritySubscrption(), result, callback);
 
@@ -2773,7 +2767,7 @@ public class SatelliteController extends Handler {
             @NonNull INtnSignalStrengthCallback callback) throws RemoteException {
         if (DBG) plogd("registerForNtnSignalStrengthChanged()");
 
-        int error = evaluateOemSatelliteRequestAllowed(true);
+        int error = evaluateOemSatelliteRequestAllowed(false);
         if (error == SATELLITE_RESULT_SUCCESS) {
             mNtnSignalStrengthChangedListeners.put(callback.asBinder(), callback);
             synchronized (mNtnSignalsStrengthLock) {
@@ -2801,11 +2795,7 @@ public class SatelliteController extends Handler {
     public void unregisterForNtnSignalStrengthChanged(
             @NonNull INtnSignalStrengthCallback callback) {
         if (DBG) plogd("unregisterForNtnSignalStrengthChanged()");
-
-        int error = evaluateOemSatelliteRequestAllowed(true);
-        if (error == SATELLITE_RESULT_SUCCESS) {
-            mNtnSignalStrengthChangedListeners.remove(callback.asBinder());
-        }
+        mNtnSignalStrengthChangedListeners.remove(callback.asBinder());
     }
 
     /**
@@ -2819,7 +2809,7 @@ public class SatelliteController extends Handler {
             @NonNull ISatelliteCapabilitiesCallback callback) {
         if (DBG) plogd("registerForCapabilitiesChanged()");
 
-        int error = evaluateOemSatelliteRequestAllowed(true);
+        int error = evaluateOemSatelliteRequestAllowed(false);
         if (error != SATELLITE_RESULT_SUCCESS) return error;
 
         mSatelliteCapabilitiesChangedListeners.put(callback.asBinder(), callback);
@@ -2837,11 +2827,7 @@ public class SatelliteController extends Handler {
     public void unregisterForCapabilitiesChanged(
             @NonNull ISatelliteCapabilitiesCallback callback) {
         if (DBG) plogd("unregisterForCapabilitiesChanged()");
-
-        int error = evaluateOemSatelliteRequestAllowed(true);
-        if (error == SATELLITE_RESULT_SUCCESS) {
-            mSatelliteCapabilitiesChangedListeners.remove(callback.asBinder());
-        }
+        mSatelliteCapabilitiesChangedListeners.remove(callback.asBinder());
     }
 
     /**
