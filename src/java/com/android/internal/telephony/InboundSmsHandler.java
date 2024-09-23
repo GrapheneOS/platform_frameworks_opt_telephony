@@ -75,6 +75,7 @@ import com.android.internal.telephony.SmsConstants.MessageClass;
 import com.android.internal.telephony.analytics.TelephonyAnalytics;
 import com.android.internal.telephony.analytics.TelephonyAnalytics.SmsMmsAnalytics;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.flags.Flags;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.telephony.satellite.metrics.CarrierRoamingSatelliteSessionStats;
 import com.android.internal.telephony.util.NotificationChannelController;
@@ -2153,10 +2154,13 @@ public abstract class InboundSmsHandler extends StateMachine {
                 // TODO(b/355049884): This is looking at sms package of the wrong user!
                 UserManager userManager =
                         (UserManager) context.getSystemService(Context.USER_SERVICE);
+                PackageManager pm = context.getPackageManager();
+                if (Flags.hsumPackageManager()) {
+                    pm = context.createContextAsUser(UserHandle.CURRENT, 0).getPackageManager();
+                }
                 if (userManager.isUserUnlocked()) {
-                    context.startActivityAsUser(context.getPackageManager()
-                            .getLaunchIntentForPackage(Telephony.Sms.getDefaultSmsPackage(context)),
-                            UserHandle.CURRENT);
+                    context.startActivityAsUser(pm.getLaunchIntentForPackage(
+                            Telephony.Sms.getDefaultSmsPackage(context)), UserHandle.CURRENT);
                 }
             }
         }

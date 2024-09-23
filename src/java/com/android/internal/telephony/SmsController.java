@@ -224,7 +224,15 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
+    @NonNull
     private String getCallingPackage() {
+        if (mFlags.hsumPackageManager()) {
+            PackageManager pm = mContext.createContextAsUser(Binder.getCallingUserHandle(), 0)
+                    .getPackageManager();
+            String[] packages = pm.getPackagesForUid(Binder.getCallingUid());
+            if (packages == null || packages.length == 0) return "";
+            return packages[0];
+        }
         return mContext.getPackageManager().getPackagesForUid(Binder.getCallingUid())[0];
     }
 
@@ -412,9 +420,7 @@ public class SmsController extends ISmsImplBase {
             boolean persistMessageForNonDefaultSmsApp, long messageId) {
         // This is different from the checking of other method. It prefers the package name
         // returned by getCallPackage() for backward-compatibility.
-        if (getCallingPackage() != null) {
-            callingPackage = getCallingPackage();
-        }
+        callingPackage = getCallingPackage();
         UserHandle callingUser = Binder.getCallingUserHandle();
 
         Rlog.d(LOG_TAG, "sendMultipartTextForSubscriber caller=" + callingPackage);
