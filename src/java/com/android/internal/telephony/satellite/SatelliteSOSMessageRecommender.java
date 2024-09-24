@@ -259,6 +259,7 @@ public class SatelliteSOSMessageRecommender extends Handler {
     }
 
     private void handleEmergencyCallStartedEvent(@NonNull Connection connection) {
+        plogd("handleEmergencyCallStartedEvent: connection=" + connection);
         mSatelliteController.setLastEmergencyCallTime();
 
         if (sendEventDisplayEmergencyMessageForcefully(connection)) {
@@ -414,6 +415,7 @@ public class SatelliteSOSMessageRecommender extends Handler {
     }
 
     private void cleanUpResources() {
+        plogd("cleanUpResources");
         synchronized (mLock) {
             stopTimer();
             if (mEmergencyConnection != null) {
@@ -501,7 +503,8 @@ public class SatelliteSOSMessageRecommender extends Handler {
         if (!SatelliteServiceUtils.isCellularAvailable() && mEmergencyConnection != null) {
             startTimer();
         } else {
-            logv("handleStateChangedEventForHysteresisTimer stopTimer");
+            plogd("handleStateChangedEventForHysteresisTimer stopTimer, mEmergencyConnection="
+                    + mEmergencyConnection);
             stopTimer();
         }
     }
@@ -514,7 +517,7 @@ public class SatelliteSOSMessageRecommender extends Handler {
             sendMessageDelayed(obtainMessage(EVENT_TIME_OUT), mTimeoutMillis);
             mCountOfTimerStarted++;
             mIsTimerTimedOut = false;
-            logd("startTimer mCountOfTimerStarted=" + mCountOfTimerStarted);
+            plogd("startTimer mCountOfTimerStarted=" + mCountOfTimerStarted);
         }
     }
 

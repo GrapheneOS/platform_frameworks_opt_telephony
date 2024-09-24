@@ -481,12 +481,12 @@ public class SatelliteServiceUtils {
                 if ((state == STATE_IN_SERVICE || state == STATE_EMERGENCY_ONLY
                         || serviceState.isEmergencyOnly())
                         && !isSatellitePlmn(phone.getSubId(), serviceState)) {
-                    logv("isCellularAvailable true");
+                    logd("isCellularAvailable true");
                     return true;
                 }
             }
         }
-        logv("isCellularAvailable false");
+        logd("isCellularAvailable false");
         return false;
     }
 
