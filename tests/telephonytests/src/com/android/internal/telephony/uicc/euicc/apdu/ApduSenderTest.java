@@ -18,7 +18,6 @@ package com.android.internal.telephony.uicc.euicc.apdu;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -34,12 +33,11 @@ import android.os.Looper;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
-import androidx.test.InstrumentationRegistry;
-
 import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.uicc.IccIoResult;
 import com.android.internal.telephony.uicc.IccUtils;
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
@@ -85,6 +83,7 @@ public class ApduSenderTest {
     private Handler mHandler;
     private ResponseCaptor mResponseCaptor;
     private byte[] mSelectResponse;
+    private static final String AID = "B2C3D4";
     private ApduSender mSender;
 
     @Before
@@ -96,7 +95,7 @@ public class ApduSenderTest {
         mSelectResponse = null;
 
         mSender = new ApduSender(InstrumentationRegistry.getContext(), 0 /* phoneId= */,
-                            mMockCi, ApduSender.ISD_R_AID, false /* supportExtendedApdu */);
+                            mMockCi, AID, false /* supportExtendedApdu */);
         mLooper = TestableLooper.get(this);
     }
 
@@ -111,16 +110,6 @@ public class ApduSenderTest {
     }
 
     @Test
-    public void testWrongAid_throwsIllegalArgumentException() {
-        String wrongAid = "-1";
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            new ApduSender(InstrumentationRegistry.getContext(), 0 /* phoneId= */,
-                            mMockCi, wrongAid, false /* supportExtendedApdu */);
-        });
-    }
-
-    @Test
     public void testSendEmptyCommands() throws InterruptedException {
         int channel = LogicalChannelMocker.mockOpenLogicalChannelResponse(mMockCi, "A1A1A19000");
         LogicalChannelMocker.mockCloseLogicalChannel(mMockCi, channel, /* error= */ null);
@@ -132,7 +121,7 @@ public class ApduSenderTest {
         assertEquals("A1A1A19000", IccUtils.bytesToHexString(mSelectResponse));
         assertNull(mResponseCaptor.response);
         assertNull(mResponseCaptor.exception);
-        verify(mMockCi).iccOpenLogicalChannel(eq(ApduSender.ISD_R_AID), anyInt(), any());
+        verify(mMockCi).iccOpenLogicalChannel(eq(AID), anyInt(), any());
         verify(mMockCi).iccCloseLogicalChannel(eq(channel), eq(true /*isEs10*/), any());
     }
 
@@ -148,7 +137,7 @@ public class ApduSenderTest {
         assertNull("Request provider should not be called when failed to open channel.",
                 mSelectResponse);
         assertTrue(mResponseCaptor.exception instanceof ApduException);
-        verify(mMockCi).iccOpenLogicalChannel(eq(ApduSender.ISD_R_AID), anyInt(), any());
+        verify(mMockCi).iccOpenLogicalChannel(eq(AID), anyInt(), any());
     }
 
     @Test
@@ -352,6 +341,6 @@ public class ApduSenderTest {
 
         assertNull("Should not open channel when another one is already opened.", mSelectResponse);
         assertTrue(mResponseCaptor.exception instanceof ApduException);
-        verify(mMockCi, times(1)).iccOpenLogicalChannel(eq(ApduSender.ISD_R_AID), anyInt(), any());
+        verify(mMockCi, times(1)).iccOpenLogicalChannel(eq(AID), anyInt(), any());
     }
 }
