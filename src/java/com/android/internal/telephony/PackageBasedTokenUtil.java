@@ -74,7 +74,7 @@ public class PackageBasedTokenUtil {
         try {
             // It is actually a certificate (public key), not a signature.
             signatures = packageManager.getPackageInfo(
-                    packageName, PackageManager.GET_SIGNATURES).signatures;
+                    packageName, PackageManager.GET_SIGNATURES | PackageManager.MATCH_ANY_USER).signatures;
         } catch (NameNotFoundException e) {
             Log.e(TAG, "Failed to find package with package name: " + packageName);
             return token;
