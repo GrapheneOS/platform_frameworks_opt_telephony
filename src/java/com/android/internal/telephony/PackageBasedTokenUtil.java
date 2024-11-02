@@ -48,7 +48,7 @@ public class PackageBasedTokenUtil {
 
         // Check for token confliction
         List<PackageInfo> packages =
-                packageManager.getInstalledPackages(PackageManager.GET_META_DATA);
+                packageManager.getInstalledPackages(PackageManager.GET_META_DATA | PackageManager.MATCH_ANY_USER);
 
         for (PackageInfo packageInfo : packages) {
             String otherPackageName = packageInfo.packageName;
