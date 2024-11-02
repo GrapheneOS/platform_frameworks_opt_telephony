@@ -45,6 +45,9 @@ public class PackageBasedTokenUtil {
     public static String generateToken(Context context, String packageName) {
         PackageManager packageManager = context.getPackageManager();
         String token = generatePackageBasedToken(packageManager, packageName);
+        if (token == null) {
+            return null;
+        }
 
         // Check for token confliction
         List<PackageInfo> packages =
@@ -60,6 +63,7 @@ public class PackageBasedTokenUtil {
             if (token.equals(otherToken)) {
                 Log.e(TAG, "token collides with other installed app.");
                 token = null;
+                break;
             }
         }
 
