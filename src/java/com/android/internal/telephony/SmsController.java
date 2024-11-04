@@ -1036,12 +1036,10 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public String getSmscAddressFromIccEfForSubscriber(int subId, String callingPackage) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+    public String getSmscAddressFromIccEfForSubscriber(int subId, String unverifiedCallingPackage) {
+        var callingPackage = getCallingPackage2(unverifiedCallingPackage);
 
-        enforceTelephonyFeatureWithException(callingPackage,
+        enforceTelephonyFeatureWithException(callingPackage.packageName(),
                 "getSmscAddressFromIccEfForSubscriber");
 
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -1054,14 +1052,16 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
+    private CallingPackage getCallingPackage2(@Nullable String unverifiedCallingPackageName) {
+        return CallingPackage.get(mContext, unverifiedCallingPackageName);
+    }
+
     @Override
     public boolean setSmscAddressOnIccEfForSubscriber(
-            String smsc, int subId, String callingPackage) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+            String smsc, int subId, String unverifiedCallingPackageName) {
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackageName);
 
-        enforceTelephonyFeatureWithException(callingPackage,
+        enforceTelephonyFeatureWithException(callingPackage.packageName(),
                 "setSmscAddressOnIccEfForSubscriber");
 
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -1211,7 +1211,7 @@ public class SmsController extends ISmsImplBase {
         if (iccSmsIntMgr != null) {
             long identity = Binder.clearCallingIdentity();
             try {
-                smscAddr =  iccSmsIntMgr.getSmscAddressFromIccEf(callingPackage);
+                smscAddr = iccSmsIntMgr.getSmscAddressFromIccEf(new CallingPackage(android.os.Process.myUid(), mContext.getPackageName()));
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }

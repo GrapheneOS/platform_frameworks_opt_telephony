@@ -571,7 +571,7 @@ public class SmsDispatchersController extends Handler {
         try {
             IccSmsInterfaceManager iccSmsIntMgr = mPhone.getIccSmsInterfaceManager();
             if (iccSmsIntMgr != null) {
-                return iccSmsIntMgr.getSmscAddressFromIccEf(callingPkg);
+                return iccSmsIntMgr.getSmscAddressFromIccEf(new CallingPackage(android.os.Process.myUid(), mContext.getPackageName()));
             } else {
                 Rlog.d(TAG, "getSmscAddressFromIccEf iccSmsIntMgr is null");
             }
