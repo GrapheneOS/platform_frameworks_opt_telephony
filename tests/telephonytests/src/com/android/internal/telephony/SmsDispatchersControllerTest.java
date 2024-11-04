@@ -528,7 +528,8 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     public void testSendImsGmsTestWithSmsc() {
         IccSmsInterfaceManager iccSmsInterfaceManager = Mockito.mock(IccSmsInterfaceManager.class);
         when(mPhone.getIccSmsInterfaceManager()).thenReturn(iccSmsInterfaceManager);
-        when(iccSmsInterfaceManager.getSmscAddressFromIccEf("com.android.messaging"))
+        CallingPackage pkg = new CallingPackage(android.os.Process.myUid(), "com.android.messaging");
+        when(iccSmsInterfaceManager.getSmscAddressFromIccEf(pkg))
                 .thenReturn("222");
         switchImsSmsFormat(PhoneConstants.PHONE_TYPE_GSM);
 
