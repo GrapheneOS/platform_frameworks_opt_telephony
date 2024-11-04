@@ -132,13 +132,12 @@ public class SmsPermissions {
      * @return true if the caller is default SMS app or has the required permission and privileges.
      *              Otherwise, false;
      */
-    public boolean checkCallingOrSelfCanGetSmscAddress(String callingPackage, String message) {
+    public boolean checkCallingOrSelfCanGetSmscAddress(CallingPackage caller, String message) {
         // Allow it to the default SMS app always.
         boolean isDefaultSmsPackage;
-        int callerUid = Binder.getCallingUid();
         final long identity = Binder.clearCallingIdentity();
         try {
-            isDefaultSmsPackage = isCallerDefaultSmsPackage(callingPackage, callerUid);
+            isDefaultSmsPackage = isCallerDefaultSmsPackage(caller);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -160,13 +159,12 @@ public class SmsPermissions {
      * @return true if the caller is default SMS app or has the required permission and privileges.
      *              Otherwise, false.
      */
-    public boolean checkCallingOrSelfCanSetSmscAddress(String callingPackage, String message) {
+    public boolean checkCallingOrSelfCanSetSmscAddress(CallingPackage caller, String message) {
         // Allow it to the default SMS app always.
         boolean isDefaultSmsPackage;
-        int callerUid = Binder.getCallingUid();
         final long identity = Binder.clearCallingIdentity();
         try {
-            isDefaultSmsPackage = isCallerDefaultSmsPackage(callingPackage, callerUid);
+            isDefaultSmsPackage = isCallerDefaultSmsPackage(caller);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -181,13 +179,9 @@ public class SmsPermissions {
 
     /** Check if a package is default SMS app. */
     @VisibleForTesting
-    public boolean isCallerDefaultSmsPackage(String packageName, int callerUid) {
-        if (packageNameMatchesCallingUid(packageName, callerUid)) {
-            UserHandle userHandle = TelephonyUtils.getSubscriptionUserHandle(mContext,
-                    mPhone.getSubId());
-            return SmsApplication.isDefaultSmsApplicationAsUser(mContext, packageName, userHandle);
-        }
-        return false;
+    public boolean isCallerDefaultSmsPackage(CallingPackage caller) {
+        return SmsApplication.isDefaultSmsApplicationAsUser(mContext,
+                caller.packageName(), caller.userHandle());
     }
 
     @VisibleForTesting
