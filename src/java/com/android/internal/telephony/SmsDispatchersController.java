@@ -213,7 +213,7 @@ public class SmsDispatchersController extends Handler {
 
         public final int type;
         public final SMSDispatcher.SmsTracker tracker;
-        public final String callingPackage;
+        public final CallingPackage callingPackage;
         public final String destAddr;
         public final String scAddr;
         public final ArrayList<PendingIntent> sentIntents;
@@ -232,7 +232,7 @@ public class SmsDispatchersController extends Handler {
         public final long messageId;
         public final boolean skipShortCodeCheck;
 
-        PendingRequest(int type, SMSDispatcher.SmsTracker tracker, String callingPackage,
+        PendingRequest(int type, SMSDispatcher.SmsTracker tracker, CallingPackage callingPackage,
                 String destAddr, String scAddr, ArrayList<PendingIntent> sentIntents,
                 ArrayList<PendingIntent> deliveryIntents, boolean isForVvm, byte[] data,
                 int destPort, ArrayList<String> texts, Uri messageUri, boolean persistMessage,
@@ -534,7 +534,7 @@ public class SmsDispatchersController extends Handler {
         }
     }
 
-    private String getSmscAddressFromUSIMWithPhoneIdentity(String callingPkg) {
+    private String getSmscAddressFromUSIMWithPhoneIdentity(CallingPackage callingPkg) {
         final long identity = Binder.clearCallingIdentity();
         try {
             IccSmsInterfaceManager iccSmsIntMgr = mPhone.getIccSmsInterfaceManager();
@@ -1546,7 +1546,7 @@ public class SmsDispatchersController extends Handler {
      *  broadcast when the message is delivered to the recipient.  The
      *  raw pdu of the status report is in the extended data ("pdu").
      */
-    protected void sendData(String callingPackage, String destAddr, String scAddr, int destPort,
+    protected void sendData(CallingPackage callingPackage, String destAddr, String scAddr, int destPort,
             byte[] data, PendingIntent sentIntent, PendingIntent deliveryIntent, boolean isForVvm) {
         if (TextUtils.isEmpty(scAddr)) {
             scAddr = getSmscAddressFromUSIMWithPhoneIdentity(callingPackage);
@@ -1672,7 +1672,7 @@ public class SmsDispatchersController extends Handler {
      *  Any Other values included Negative considered as Invalid Validity Period of the message.
      */
     public void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
-            PendingIntent deliveryIntent, Uri messageUri, String callingPkg, boolean persistMessage,
+            PendingIntent deliveryIntent, Uri messageUri, CallingPackage callingPkg, boolean persistMessage,
             int priority, boolean expectMore, int validityPeriod, boolean isForVvm,
             long messageId) {
         sendText(destAddr, scAddr, text, sentIntent, deliveryIntent, messageUri, callingPkg,
@@ -1778,7 +1778,7 @@ public class SmsDispatchersController extends Handler {
      * @param skipShortCodeCheck Skip check for short code type destination address.
      */
     public void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
-            PendingIntent deliveryIntent, Uri messageUri, String callingPkg, boolean persistMessage,
+            PendingIntent deliveryIntent, Uri messageUri, CallingPackage callingPkg, boolean persistMessage,
             int priority, boolean expectMore, int validityPeriod, boolean isForVvm,
             long messageId, boolean skipShortCodeCheck) {
         if (TextUtils.isEmpty(scAddr)) {
@@ -1921,7 +1921,7 @@ public class SmsDispatchersController extends Handler {
      */
     protected void sendMultipartText(String destAddr, String scAddr,
             ArrayList<String> parts, ArrayList<PendingIntent> sentIntents,
-            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg,
+            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, CallingPackage callingPkg,
             boolean persistMessage, int priority, boolean expectMore, int validityPeriod,
             long messageId) {
         if (TextUtils.isEmpty(scAddr)) {

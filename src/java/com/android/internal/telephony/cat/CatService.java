@@ -45,6 +45,7 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.CallingPackage;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.ProxyController;
@@ -639,7 +640,7 @@ public class CatService extends Handler implements AppInterface {
                         .setPackage(mContext.getPackageName()),
                 PendingIntent.FLAG_MUTABLE);
         SmsController smsController = proxyController.getSmsController();
-        smsController.sendTextForSubscriber(subId, mContext.getOpPackageName(),
+        smsController.sendTextForSubscriber(subId, new CallingPackage(android.os.Process.myUid(), mContext.getOpPackageName()),
                 mContext.getAttributionTag(), destAddr, null, text, sentPendingIntent,
                 deliveryPendingIntent, false, 0L, true, true);
     }

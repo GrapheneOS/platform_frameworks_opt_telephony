@@ -1398,7 +1398,7 @@ public abstract class SMSDispatcher extends Handler {
      *  raw pdu of the status report is in the extended data ("pdu").
      */
     @UnsupportedAppUsage
-    protected void sendData(String callingPackage, String destAddr, String scAddr, int destPort,
+    protected void sendData(CallingPackage callingPackage, String destAddr, String scAddr, int destPort,
             byte[] data, PendingIntent sentIntent, PendingIntent deliveryIntent, boolean isForVvm) {
         int messageRef = nextMessageRef();
         SmsMessageBase.SubmitPduBase pdu = getSubmitPdu(
@@ -1521,7 +1521,7 @@ public abstract class SMSDispatcher extends Handler {
      */
     public void sendText(String destAddr, String scAddr, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent, Uri messageUri,
-            String callingPkg, boolean persistMessage, int priority,
+            CallingPackage callingPkg, boolean persistMessage, int priority,
             boolean expectMore, int validityPeriod, boolean isForVvm,
             long messageId) {
         sendText(destAddr, scAddr, text, sentIntent, deliveryIntent, messageUri, callingPkg,
@@ -1631,7 +1631,7 @@ public abstract class SMSDispatcher extends Handler {
      */
     public void sendText(String destAddr, String scAddr, String text,
                          PendingIntent sentIntent, PendingIntent deliveryIntent, Uri messageUri,
-                         String callingPkg, boolean persistMessage, int priority,
+                         CallingPackage callingPkg, boolean persistMessage, int priority,
                          boolean expectMore, int validityPeriod, boolean isForVvm,
                          long messageId, boolean skipShortCodeCheck) {
         Rlog.d(TAG, "sendText id: " + SmsController.formatCrossStackMessageId(messageId));
@@ -1824,7 +1824,7 @@ public abstract class SMSDispatcher extends Handler {
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PROTECTED)
     public void sendMultipartText(String destAddr, String scAddr,
             ArrayList<String> parts, ArrayList<PendingIntent> sentIntents,
-            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg,
+            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, CallingPackage callingPkg,
             boolean persistMessage, int priority, boolean expectMore, int validityPeriod,
             long messageId) {
         final String fullMessageText = getMultipartMessageText(parts);
@@ -1920,7 +1920,7 @@ public abstract class SMSDispatcher extends Handler {
     /**
      * Create a new SubmitPdu and return the SMS tracker.
      */
-    private SmsTracker getNewSubmitPduTracker(String callingPackage, String destinationAddress,
+    private SmsTracker getNewSubmitPduTracker(CallingPackage callingPackage, String destinationAddress,
             String scAddress, String message, SmsHeader smsHeader, int encoding,
             PendingIntent sentIntent, PendingIntent deliveryIntent, boolean lastPart,
             AtomicInteger unsentPartCount, AtomicBoolean anyPartFailed, Uri messageUri,
@@ -2552,16 +2552,14 @@ public abstract class SMSDispatcher extends Handler {
         /** Return if the SMS was originated from the default SMS application. */
         public boolean isFromDefaultSmsApplication(Context context) {
             if (mIsFromDefaultSmsApplication == null) {
-                UserHandle userHandle;
-                final long identity = Binder.clearCallingIdentity();
-                try {
-                    userHandle = TelephonyUtils.getSubscriptionUserHandle(context, mSubId);
-                } finally {
-                    Binder.restoreCallingIdentity(identity);
-                }
                 // Perform a lazy initialization, due to the cost of the operation.
-                mIsFromDefaultSmsApplication = SmsApplication.isDefaultSmsApplicationAsUser(context,
-                                    getAppPackageName(), userHandle);
+                ApplicationInfo appInfo = getAppInfo();
+                boolean res = false;
+                if (appInfo != null) {
+                    res = SmsApplication.isDefaultSmsApplicationAsUser(context,
+                                    appInfo.packageName, UserHandle.getUserHandleForUid(appInfo.uid));
+                }
+                mIsFromDefaultSmsApplication = Boolean.valueOf(res);
             }
             return mIsFromDefaultSmsApplication;
         }
@@ -2812,19 +2810,19 @@ public abstract class SMSDispatcher extends Handler {
         }
     }
 
-    protected SmsTracker getSmsTracker(String callingPackage, HashMap<String, Object> data,
+    protected SmsTracker getSmsTracker(CallingPackage callingPackage, HashMap<String, Object> data,
             PendingIntent sentIntent, PendingIntent deliveryIntent, String format,
             AtomicInteger unsentPartCount, AtomicBoolean anyPartFailed, Uri messageUri,
             SmsHeader smsHeader, boolean expectMore, String fullMessageText, boolean isText,
             boolean persistMessage, int priority, int validityPeriod, boolean isForVvm,
             long messageId, int messageRef, boolean skipShortCodeCheck) {
         // Get package info via packagemanager
-        UserHandle callingUser = UserHandle.getUserHandleForUid(Binder.getCallingUid());
+        UserHandle callingUser = callingPackage.userHandle();
         final int userId = callingUser.getIdentifier();
         PackageManager pm = mContext.createContextAsUser(callingUser, 0).getPackageManager();
         PackageInfo appInfo = null;
         try {
-            appInfo = pm.getPackageInfo(callingPackage, PackageManager.GET_SIGNATURES);
+            appInfo = pm.getPackageInfo(callingPackage.packageName(), PackageManager.GET_SIGNATURES);
         } catch (PackageManager.NameNotFoundException e) {
             // error will be logged in sendRawPdu
         }
@@ -2838,7 +2836,7 @@ public abstract class SMSDispatcher extends Handler {
                 skipShortCodeCheck);
     }
 
-    protected SmsTracker getSmsTracker(String callingPackage, HashMap<String, Object> data,
+    protected SmsTracker getSmsTracker(CallingPackage callingPackage, HashMap<String, Object> data,
             PendingIntent sentIntent, PendingIntent deliveryIntent, String format, Uri messageUri,
             boolean expectMore, String fullMessageText, boolean isText, boolean persistMessage,
             boolean isForVvm, long messageId, int messageRef) {
@@ -2849,7 +2847,7 @@ public abstract class SMSDispatcher extends Handler {
                 messageId, messageRef, false);
     }
 
-    protected SmsTracker getSmsTracker(String callingPackage, HashMap<String, Object> data,
+    protected SmsTracker getSmsTracker(CallingPackage callingPackage, HashMap<String, Object> data,
             PendingIntent sentIntent, PendingIntent deliveryIntent, String format, Uri messageUri,
             boolean expectMore, String fullMessageText, boolean isText, boolean persistMessage,
             int priority, int validityPeriod, boolean isForVvm, long messageId, int messageRef,
