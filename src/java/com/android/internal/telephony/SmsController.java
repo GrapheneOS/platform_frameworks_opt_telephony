@@ -170,19 +170,17 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public void sendDataForSubscriber(int subId, String callingPackage,
+    public void sendDataForSubscriber(int subId, String unverifiedCallingPackage,
             String callingAttributionTag, String destAddr, String scAddr, int destPort, byte[] data,
             PendingIntent sentIntent, PendingIntent deliveryIntent) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackage);
         Rlog.d(LOG_TAG, "sendDataForSubscriber caller=" + callingPackage);
 
         // Check if user is associated with the subscription
         if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
-                Binder.getCallingUserHandle(), destAddr)) {
+                callingPackage.userHandle(), destAddr)) {
             TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
-                    Binder.getCallingUid(), callingPackage);
+                    callingPackage.uid(), callingPackage.packageName());
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
             return;
         }
@@ -223,11 +221,16 @@ public class SmsController extends ISmsImplBase {
         return mContext.getPackageManager().getPackagesForUid(Binder.getCallingUid())[0];
     }
 
+    private CallingPackage getCallingPackage2(@Nullable String unverifiedCallingPackageName) {
+        return CallingPackage.get(mContext, unverifiedCallingPackageName);
+    }
+
     @Override
-    public void sendTextForSubscriber(int subId, String callingPackage,
+    public void sendTextForSubscriber(int subId, String unverifiedCallingPackage,
             String callingAttributionTag, String destAddr, String scAddr, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent,
             boolean persistMessageForNonDefaultSmsApp, long messageId) {
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackage);
         sendTextForSubscriber(subId, callingPackage, callingAttributionTag, destAddr, scAddr,
                 text, sentIntent, deliveryIntent, persistMessageForNonDefaultSmsApp, messageId,
                 false, false);
@@ -253,14 +256,11 @@ public class SmsController extends ISmsImplBase {
      *
      * @hide
      */
-    public void sendTextForSubscriber(int subId, String callingPackage,
+    public void sendTextForSubscriber(int subId, CallingPackage callingPackage,
             String callingAttributionTag, String destAddr, String scAddr, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent,
             boolean persistMessageForNonDefaultSmsApp, long messageId, boolean skipFdnCheck,
             boolean skipShortCodeCheck) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
         Rlog.d(LOG_TAG, "sendTextForSubscriber caller=" + callingPackage);
 
         if (skipFdnCheck || skipShortCodeCheck) {
@@ -271,7 +271,7 @@ public class SmsController extends ISmsImplBase {
             }
         }
         if (!getSmsPermissions(subId).checkCallingCanSendText(persistMessageForNonDefaultSmsApp,
-                callingPackage, callingAttributionTag, "Sending SMS message")) {
+                callingPackage.packageName(), callingAttributionTag, "Sending SMS message")) {
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_GENERIC_FAILURE);
             return;
         }
@@ -283,9 +283,9 @@ public class SmsController extends ISmsImplBase {
                 + crossUserFullGranted);
         if (!crossUserFullGranted
                 && !TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
-                Binder.getCallingUserHandle(), destAddr)) {
+                callingPackage.userHandle(), destAddr)) {
             TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
-                    Binder.getCallingUid(), callingPackage);
+                    callingPackage.uid(), callingPackage.packageName());
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
             return;
         }
@@ -326,7 +326,7 @@ public class SmsController extends ISmsImplBase {
         btSmsInterfaceManager.sendText(mContext, destAddr, text, sentIntent, deliveryIntent, info);
     }
 
-    private void sendIccText(int subId, String callingPackage, String destAddr,
+    private void sendIccText(int subId, CallingPackage callingPackage, String destAddr,
             String scAddr, String text, PendingIntent sentIntent, PendingIntent deliveryIntent,
             boolean persistMessageForNonDefaultSmsApp, long messageId, boolean skipShortCodeCheck) {
         Rlog.d(LOG_TAG, "sendTextForSubscriber iccSmsIntMgr"
@@ -359,20 +359,18 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public void sendTextForSubscriberWithOptions(int subId, String callingPackage,
+    public void sendTextForSubscriberWithOptions(int subId, String unverifiedCallingPackage,
             String callingAttributionTag, String destAddr, String scAddr, String parts,
             PendingIntent sentIntent, PendingIntent deliveryIntent, boolean persistMessage,
             int priority, boolean expectMore, int validityPeriod) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackage);
         Rlog.d(LOG_TAG, "sendTextForSubscriberWithOptions caller=" + callingPackage);
 
         // Check if user is associated with the subscription
         if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
-                Binder.getCallingUserHandle(), destAddr)) {
+                callingPackage.userHandle(), destAddr)) {
             TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
-                    Binder.getCallingUid(), callingPackage);
+                    callingPackage.uid(), callingPackage.packageName());
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
             return;
         }
@@ -396,22 +394,22 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public void sendMultipartTextForSubscriber(int subId, String callingPackage,
+    public void sendMultipartTextForSubscriber(int subId, String unverifiedCallingPackage,
             String callingAttributionTag, String destAddr, String scAddr, List<String> parts,
             List<PendingIntent> sentIntents, List<PendingIntent> deliveryIntents,
             boolean persistMessageForNonDefaultSmsApp, long messageId) {
         // This is different from the checking of other method. It prefers the package name
         // returned by getCallPackage() for backward-compatibility.
-        if (getCallingPackage() != null) {
-            callingPackage = getCallingPackage();
-        }
+        CallingPackage callingPackage = getCallingPackage2(
+                // see upstream comment above for why arg is null
+                null);
         Rlog.d(LOG_TAG, "sendMultipartTextForSubscriber caller=" + callingPackage);
 
         // Check if user is associated with the subscription
         if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
-                Binder.getCallingUserHandle(), destAddr)) {
+                callingPackage.userHandle(), destAddr)) {
             TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
-                    Binder.getCallingUid(), callingPackage);
+                    callingPackage.uid(), callingPackage.packageName());
             sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_USER_NOT_ALLOWED);
             return;
         }
@@ -437,20 +435,18 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public void sendMultipartTextForSubscriberWithOptions(int subId, String callingPackage,
+    public void sendMultipartTextForSubscriberWithOptions(int subId, String unverifiedCallingPackageName,
             String callingAttributionTag, String destAddr, String scAddr, List<String> parts,
             List<PendingIntent> sentIntents, List<PendingIntent> deliveryIntents,
             boolean persistMessage, int priority, boolean expectMore, int validityPeriod) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackageName);
         Rlog.d(LOG_TAG, "sendMultipartTextForSubscriberWithOptions caller=" + callingPackage);
 
         // Check if user is associated with the subscription
         if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
-                Binder.getCallingUserHandle(), destAddr)) {
+                callingPackage.userHandle(), destAddr)) {
             TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
-                    Binder.getCallingUid(), callingPackage);
+                    callingPackage.uid(), callingPackage.packageName());
             sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_USER_NOT_ALLOWED);
             return;
         }
@@ -1013,12 +1009,10 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
-    public String getSmscAddressFromIccEfForSubscriber(int subId, String callingPackage) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+    public String getSmscAddressFromIccEfForSubscriber(int subId, String unverifiedCallingPackage) {
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackage);
 
-        enforceTelephonyFeatureWithException(callingPackage,
+        enforceTelephonyFeatureWithException(callingPackage.packageName(),
                 "getSmscAddressFromIccEfForSubscriber");
 
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -1033,12 +1027,10 @@ public class SmsController extends ISmsImplBase {
 
     @Override
     public boolean setSmscAddressOnIccEfForSubscriber(
-            String smsc, int subId, String callingPackage) {
-        if (callingPackage == null) {
-            callingPackage = getCallingPackage();
-        }
+            String smsc, int subId, String unverifiedCallingPackageName) {
+        CallingPackage callingPackage = getCallingPackage2(unverifiedCallingPackageName);
 
-        enforceTelephonyFeatureWithException(callingPackage,
+        enforceTelephonyFeatureWithException(callingPackage.packageName(),
                 "setSmscAddressOnIccEfForSubscriber");
 
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -1164,7 +1156,7 @@ public class SmsController extends ISmsImplBase {
      * @return true if either destAddr or smscAddr is blocked due to FDN.
      */
     @VisibleForTesting
-    public boolean isNumberBlockedByFDN(int subId, String destAddr, String callingPackage) {
+    public boolean isNumberBlockedByFDN(int subId, String destAddr, CallingPackage callingPackage) {
         int phoneId = SubscriptionManager.getPhoneId(subId);
         if (!FdnUtils.isFdnEnabled(phoneId)) {
             return false;
@@ -1216,6 +1208,10 @@ public class SmsController extends ISmsImplBase {
     public long getWapMessageSize(@NonNull String locationUrl) {
         byte[] bytes = locationUrl.getBytes(StandardCharsets.ISO_8859_1);
         return WapPushCache.getWapMessageSize(bytes);
+    }
+
+    private void enforceTelephonyFeatureWithException(@NonNull CallingPackage callingPackage, @NonNull String methodName) {
+        enforceTelephonyFeatureWithException(callingPackage.packageName(), methodName);
     }
 
     /**
