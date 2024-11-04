@@ -83,7 +83,7 @@ public class IccSmsInterfaceManagerTest extends TelephonyTest {
     public void testSynchronization() throws Exception {
         mContextFixture.addCallingOrSelfPermission(android.Manifest.permission
                 .RECEIVE_EMERGENCY_BROADCAST);
-        when(mMockSmsPermissions.checkCallingOrSelfCanGetSmscAddress(anyString(), anyString()))
+        when(mMockSmsPermissions.checkCallingOrSelfCanGetSmscAddress(any(), anyString()))
                 .thenReturn(true);
         mSimulatedCommands.mSendSetGsmBroadcastConfigResponse = false;
         mSimulatedCommands.mSendGetSmscAddressResponse = false;
@@ -104,7 +104,7 @@ public class IccSmsInterfaceManagerTest extends TelephonyTest {
         Thread getSmscThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                mIccSmsInterfaceManager.getSmscAddressFromIccEf("calling package");
+                mIccSmsInterfaceManager.getSmscAddressFromIccEf(new CallingPackage(0, "calling package"));
                 getSmscLatch.countDown();
             }
         });

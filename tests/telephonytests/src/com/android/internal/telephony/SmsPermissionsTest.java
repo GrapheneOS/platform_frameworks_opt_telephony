@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 public class SmsPermissionsTest extends TelephonyTest {
     private static final String PACKAGE = "com.example.package";
+    private static final CallingPackage CALLING_PACKAGE = new CallingPackage(0, PACKAGE);
     private static final String ATTRIBUTION_TAG = null;
     private static final String MESSAGE = "msg";
 
@@ -78,7 +79,7 @@ public class SmsPermissionsTest extends TelephonyTest {
                 }
 
                 @Override
-                public boolean isCallerDefaultSmsPackage(String packageName, int uid) {
+                public boolean isCallerDefaultSmsPackage(CallingPackage caller) {
                     return mCallerIsDefaultSmsPackage;
                 }
             };
@@ -197,7 +198,7 @@ public class SmsPermissionsTest extends TelephonyTest {
         Mockito.when(mMockContext.checkCallingOrSelfPermission(
                     Manifest.permission.READ_PRIVILEGED_PHONE_STATE))
                 .thenReturn(PERMISSION_DENIED);
-        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(PACKAGE, MESSAGE));
+        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(CALLING_PACKAGE, MESSAGE));
     }
 
     @Test
@@ -205,7 +206,7 @@ public class SmsPermissionsTest extends TelephonyTest {
         Mockito.when(mMockContext.checkCallingOrSelfPermission(
                     Manifest.permission.READ_PRIVILEGED_PHONE_STATE))
                 .thenReturn(PERMISSION_GRANTED);
-        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(PACKAGE, MESSAGE));
+        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(CALLING_PACKAGE, MESSAGE));
     }
 
     @Test
@@ -216,7 +217,7 @@ public class SmsPermissionsTest extends TelephonyTest {
                     Manifest.permission.READ_PRIVILEGED_PHONE_STATE))
                 .thenReturn(PERMISSION_DENIED);
         try {
-            mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(PACKAGE, MESSAGE);
+            mSmsPermissionsTest.checkCallingOrSelfCanGetSmscAddress(CALLING_PACKAGE, MESSAGE);
             fail();
         } catch (SecurityException e) {
             // expected
@@ -229,7 +230,7 @@ public class SmsPermissionsTest extends TelephonyTest {
         Mockito.when(mMockContext.checkCallingOrSelfPermission(
                     Manifest.permission.MODIFY_PHONE_STATE))
                 .thenReturn(PERMISSION_DENIED);
-        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(PACKAGE, MESSAGE));
+        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(CALLING_PACKAGE, MESSAGE));
     }
 
     @Test
@@ -237,7 +238,7 @@ public class SmsPermissionsTest extends TelephonyTest {
         Mockito.when(mMockContext.checkCallingOrSelfPermission(
                     Manifest.permission.MODIFY_PHONE_STATE))
                 .thenReturn(PERMISSION_GRANTED);
-        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(PACKAGE, MESSAGE));
+        assertTrue(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(CALLING_PACKAGE, MESSAGE));
     }
 
     @Test
@@ -247,7 +248,7 @@ public class SmsPermissionsTest extends TelephonyTest {
         Mockito.when(mMockContext.checkCallingOrSelfPermission(
                 Manifest.permission.MODIFY_PHONE_STATE)).thenReturn(PERMISSION_DENIED);
         try {
-            assertFalse(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(PACKAGE, MESSAGE));
+            assertFalse(mSmsPermissionsTest.checkCallingOrSelfCanSetSmscAddress(CALLING_PACKAGE, MESSAGE));
             fail();
         } catch (SecurityException e) {
             // expected
