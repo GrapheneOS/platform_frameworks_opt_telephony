@@ -464,6 +464,30 @@ public class ImsPhoneTest extends TelephonyTest {
 
     @Test
     @SmallTest
+    public void testDialWithShortEmergencyNumber() throws Exception {
+        // Pre-condition
+        // Exist active call, try to set up 2-digit emergency number.
+        doReturn(Call.State.ACTIVE).when(mForegroundCall).getState();
+
+        String dialString = "17";
+        int videoState = 0;
+        ImsPhone.ImsDialArgs imsDialArgs = new ImsPhone.ImsDialArgs.Builder()
+                .setVideoState(videoState)
+                .setIsEmergency(true)
+                .build();
+
+        Connection connection = mImsPhoneUT.dial(dialString, imsDialArgs);
+        assertEquals(null, connection);
+        verify(mImsCT, never()).dial(eq(dialString), any(ImsPhone.ImsDialArgs.class));
+
+        doReturn(true).when(mFeatureFlags).skipMmiCodeCheckForEmergencyCall();
+
+        mImsPhoneUT.dial(dialString, imsDialArgs);
+        verify(mImsCT).dial(eq(dialString), any(ImsPhone.ImsDialArgs.class));
+    }
+
+    @Test
+    @SmallTest
     public void testDtmf() {
         // case 1
         doReturn(PhoneConstants.State.IDLE).when(mImsCT).getState();
