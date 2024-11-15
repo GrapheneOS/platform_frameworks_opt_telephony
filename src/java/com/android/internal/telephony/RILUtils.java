@@ -4132,6 +4132,34 @@ public class RILUtils {
     }
 
     /**
+     * This API is for fallback to support getAllowedCarriers too.
+     *
+     * Convert an array of CarrierInfo defined in
+     * radio/aidl/android/hardware/radio/sim/CarrierInfo.aidl to a list of CarrierIdentifiers.
+     *
+     * @param carrierInfos array of CarrierInfo defined in
+     *                     radio/aidl/android/hardware/radio/sim/CarrierInfo.aidl
+     * @return The converted list of CarrierIdentifiers
+     */
+    public static List<CarrierIdentifier> convertAidlCarrierInfoListToHalCarrierList(
+            android.hardware.radio.sim.CarrierInfo[] carrierInfos) {
+        List<CarrierIdentifier> ret = new ArrayList<>();
+        if (carrierInfos == null) {
+            return ret;
+        }
+        for (android.hardware.radio.sim.CarrierInfo carrierInfo : carrierInfos) {
+            String mcc = carrierInfo.mcc;
+            String mnc = carrierInfo.mnc;
+            String spn = carrierInfo.spn;
+            String imsi = carrierInfo.imsiPrefix;
+            String gid1 = carrierInfo.gid1;
+            String gid2 = carrierInfo.gid2;
+            ret.add(new CarrierIdentifier(mcc, mnc, spn, imsi, gid1, gid2));
+        }
+        return ret;
+    }
+
+    /**
      * Convert the sim policy defined in
      * radio/aidl/android/hardware/radio/sim/SimLockMultiSimPolicy.aidl to the equivalent sim
      * policy defined in android.telephony/CarrierRestrictionRules.MultiSimPolicy
