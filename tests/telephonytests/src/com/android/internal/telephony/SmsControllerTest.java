@@ -99,7 +99,7 @@ public class SmsControllerTest extends TelephonyTest {
         doReturn(true).when(mUiccCardApplication3gpp).getIccFdnEnabled();
         doReturn(false).when(mTelephonyManager).isEmergencyNumber(anyString());
         doReturn("us").when(mTelephonyManager).getSimCountryIso();
-        doReturn(smscAddrStr).when(mIccSmsInterfaceManager).getSmscAddressFromIccEf(anyString());
+        doReturn(smscAddrStr).when(mIccSmsInterfaceManager).getSmscAddressFromIccEf(any());
     }
 
     private void fdnCheckCleanup() {
