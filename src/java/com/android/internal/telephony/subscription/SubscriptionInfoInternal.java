@@ -33,6 +33,7 @@ package com.android.internal.telephony.subscription;
 
 import android.annotation.ColorInt;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.os.UserHandle;
 import android.provider.Telephony.SimInfo;
@@ -79,6 +80,8 @@ public class SubscriptionInfoInternal {
      * and not an index into an array
      */
     private final int mId;
+
+    @NonNull private final String mExtSimState;
 
     /**
      * The ICCID of the SIM that is associated with this subscription, empty if unknown.
@@ -573,6 +576,8 @@ public class SubscriptionInfoInternal {
      * @param builder Builder of {@link SubscriptionInfoInternal}.
      */
     private SubscriptionInfoInternal(@NonNull Builder builder) {
+        this.mExtSimState = builder.mExtSimState;
+
         this.mId = builder.mId;
         this.mIccId = builder.mIccId;
         this.mSimSlotIndex = builder.mSimSlotIndex;
@@ -675,6 +680,11 @@ public class SubscriptionInfoInternal {
     @NonNull
     public String getIccId() {
         return mIccId;
+    }
+
+    @NonNull
+    public String getExtSimState() {
+        return mExtSimState;
     }
 
     /**
@@ -1501,6 +1511,7 @@ public class SubscriptionInfoInternal {
     @Override
     public String toString() {
         return "[SubscriptionInfoInternal: id=" + mId
+                + " mExtSimState=" + mExtSimState
                 + " iccId=" + SubscriptionInfo.getPrintableId(mIccId)
                 + " simSlotIndex=" + mSimSlotIndex
                 + " portIndex=" + mPortIndex
@@ -1582,6 +1593,7 @@ public class SubscriptionInfoInternal {
      */
     public boolean equalsDbItemsOnly(@NonNull SubscriptionInfoInternal that) {
         return mId == that.mId && mSimSlotIndex == that.mSimSlotIndex
+                && mExtSimState.equals(that.mExtSimState)
                 && mDisplayNameSource == that.mDisplayNameSource && mIconTint == that.mIconTint
                 && mDataRoaming == that.mDataRoaming && mIsEmbedded == that.mIsEmbedded
                 && mIsRemovableEmbedded == that.mIsRemovableEmbedded
@@ -1661,7 +1673,7 @@ public class SubscriptionInfoInternal {
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(mId, mIccId, mSimSlotIndex, mDisplayName, mCarrierName,
+        int result = Objects.hash(mExtSimState, mId, mIccId, mSimSlotIndex, mDisplayName, mCarrierName,
                 mDisplayNameSource, mIconTint, mNumber, mDataRoaming, mMcc, mMnc, mEhplmns, mHplmns,
                 mIsEmbedded, mCardString, mIsRemovableEmbedded, mIsExtremeThreatAlertEnabled,
                 mIsSevereThreatAlertEnabled, mIsAmberAlertEnabled, mIsEmergencyAlertEnabled,
@@ -1695,6 +1707,12 @@ public class SubscriptionInfoInternal {
      * The builder class of {@link SubscriptionInfoInternal}.
      */
     public static class Builder {
+        /**
+         * The extended SIM state
+         */
+        @NonNull
+        private String mExtSimState = "";
+
         /**
          * The subscription id.
          */
@@ -2172,6 +2190,8 @@ public class SubscriptionInfoInternal {
          * @param info The subscription info.
          */
         public Builder(@NonNull SubscriptionInfoInternal info) {
+            mExtSimState = info.mExtSimState;
+
             mId = info.mId;
             mIccId = info.mIccId;
             mSimSlotIndex = info.mSimSlotIndex;
@@ -2265,6 +2285,18 @@ public class SubscriptionInfoInternal {
         @NonNull
         public Builder setId(int id) {
             mId = id;
+            return this;
+        }
+
+        /**
+         * Set the extended sim state for this subscription.
+         *
+         * @param extSimState The extended sim state for this subscription.
+         * @return The builder.
+         */
+        @NonNull
+        public Builder setExtSimState(@Nullable String extSimState) {
+            mExtSimState = extSimState != null ? extSimState : "";
             return this;
         }
 

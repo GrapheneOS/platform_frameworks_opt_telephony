@@ -17,6 +17,7 @@
 package com.android.internal.telephony.subscription;
 
 import static android.content.pm.PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION;
+import static com.android.internal.telephony.nano.ExtSimStateProto.ExtSimState;
 
 import android.Manifest;
 import android.annotation.CallbackExecutor;
@@ -110,6 +111,7 @@ import com.android.internal.telephony.TelephonyPermissions;
 import com.android.internal.telephony.data.PhoneSwitcher;
 import com.android.internal.telephony.euicc.EuiccController;
 import com.android.internal.telephony.flags.FeatureFlags;
+import com.android.internal.telephony.nano.ExtSimStateProto;
 import com.android.internal.telephony.satellite.SatelliteController;
 import com.android.internal.telephony.subscription.SubscriptionDatabaseManager.SubscriptionDatabaseManagerCallback;
 import com.android.internal.telephony.uicc.IccRecords;
@@ -133,6 +135,8 @@ import org.json.JSONObject;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -179,6 +183,8 @@ public class SubscriptionManagerService extends ISub.Stub {
 
     /** Whether enabling verbose debugging message or not. */
     private static final boolean VDBG = false;
+
+    private static final int MAX_CONFIG_OVERRIDES = 25;
 
     // Compile-time debug flag for controlling worker thread behavior
     private static final boolean USE_WORKER_THREAD = false;
@@ -5206,6 +5212,88 @@ public class SubscriptionManagerService extends ISub.Stub {
         } finally {
             Binder.restoreCallingIdentity(token);
         }
+    }
+
+    public boolean setExtCarrierConfigOverrides(int subId, @Nullable PersistableBundle overrides) {
+        if (overrides != null && overrides.size() > MAX_CONFIG_OVERRIDES) {
+            throw new IllegalArgumentException("too many overrides");
+        }
+
+        final SubscriptionInfoInternal subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
+        if (subInfo == null) {
+            loge("No SubscriptionInfo found for subId=" + subId);
+            return false;
+        }
+
+        ExtSimState state;
+        if (subInfo.getExtSimState().isEmpty()) {
+            state = new ExtSimState();
+        } else {
+            try {
+                state = ExtSimState.parseFrom(
+                        Base64.decode(subInfo.getExtSimState(), Base64.DEFAULT));
+            } catch (IOException e) {
+                loge("parse error from subInfo: " + e.getMessage());
+                Log.d("setExtOverrideConfigs", "overwriting bad ExtSimState");
+                state = new ExtSimState();
+            }
+        }
+
+        if (overrides != null) {
+            state.overrideConfigs = bundleToBytes(overrides);
+        } else {
+            state.overrideConfigs = new byte[0];
+        }
+
+        mSubscriptionDatabaseManager.setExtSimState(subId,
+                Base64.encodeToString(ExtSimState.toByteArray(state), Base64.DEFAULT));
+        return true;
+    }
+
+    @Nullable
+    public PersistableBundle getExtCarrierConfigOverrides(int subId) {
+        final SubscriptionInfoInternal subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
+        if (subInfo == null) {
+            return null;
+        }
+        if (subInfo.getExtSimState().isEmpty()) {
+            return null;
+        }
+
+        final ExtSimState state;
+        try {
+            state = ExtSimState.parseFrom(Base64.decode(subInfo.getExtSimState(), Base64.DEFAULT));
+        } catch (IOException e) {
+            loge("getExtOverrideConfigs parse error: " + e.getMessage());
+            return null;
+        }
+        if (state.overrideConfigs.length == 0) {
+            return null;
+        }
+
+        var res = bundleFromBytes(state.overrideConfigs);
+        return res;
+    }
+
+    @Nullable
+    private PersistableBundle bundleFromBytes(byte[] bytes) {
+        var bis = new ByteArrayInputStream(bytes);
+        try {
+            return PersistableBundle.readFromStream(bis);
+        } catch (IOException e) {
+            loge("bundleFromBytes failed: " + Log.getStackTraceString(e));
+            return null;
+        }
+    }
+
+    public static byte[] bundleToBytes(PersistableBundle bundle) {
+        var bos = new ByteArrayOutputStream();
+        try {
+            bundle.writeToStream(bos);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bos.toByteArray();
     }
 
     /**

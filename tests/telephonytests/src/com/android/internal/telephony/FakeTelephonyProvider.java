@@ -54,6 +54,7 @@ public class FakeTelephonyProvider extends MockContentProvider {
         // This should always be consistent with TelephonyProvider#getStringForSimInfoTableCreation.
         private String getStringForSimInfoTableCreation(String tableName) {
             return "CREATE TABLE " + tableName + "("
+                    + Telephony.SimInfo.COLUMN_EXT_SIM_STATE + " TEXT,"
                     + Telephony.SimInfo.COLUMN_UNIQUE_KEY_SUBSCRIPTION_ID
                     + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                     + Telephony.SimInfo.COLUMN_ICC_ID + " TEXT NOT NULL,"
