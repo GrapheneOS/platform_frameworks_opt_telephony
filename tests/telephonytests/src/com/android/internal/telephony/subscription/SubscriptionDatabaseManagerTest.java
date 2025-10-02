@@ -73,6 +73,9 @@ import java.util.concurrent.Executor;
 @TestableLooper.RunWithLooper
 public class SubscriptionDatabaseManagerTest extends TelephonyTest {
 
+    static final String FAKE_EXT_SIM_STATE1 = "s1";
+    static final String FAKE_EXT_SIM_STATE2 = "s2";
+
     static final String FAKE_DEFAULT_CARD_NAME = "CARD %d";
     static final String FAKE_ICCID1 = "123456";
     static final String FAKE_ICCID2 = "456789";
@@ -161,9 +164,6 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
 
     static final int FAKE_SATELLITE_PROVISIONED = 1;
     static final int FAKE_SATELLITE_NOT_PROVISIONED = 0;
-
-    static final String FAKE_EXT_SIM_STATE1 = "s1";
-    static final String FAKE_EXT_SIM_STATE2 = "s2";
 
     static final SubscriptionInfoInternal FAKE_SUBSCRIPTION_INFO1 =
             new SubscriptionInfoInternal.Builder()
@@ -2110,6 +2110,13 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
         // Two subs are now in the same group
         mDatabaseManagerUT.setGroupUuid(2, FAKE_UUID1);
 
+        // extSimState is also in group update list
+        mDatabaseManagerUT.setExtSimState(1, FAKE_EXT_SIM_STATE1);
+        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(1)
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
+        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(2)
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
+
         mDatabaseManagerUT.setWifiCallingEnabled(1, 1);
         assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(1)
                 .isWifiCallingEnabled()).isTrue();
@@ -2146,13 +2153,6 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
                 .getIccId()).isEqualTo("0987");
         assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(2)
                 .getIccId()).isEqualTo(FAKE_ICCID2);
-
-        // extSimState is also in group update list
-        mDatabaseManagerUT.setExtSimState(1, FAKE_EXT_SIM_STATE1);
-        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(1)
-                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
-        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(2)
-                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
     }
 
     @Test

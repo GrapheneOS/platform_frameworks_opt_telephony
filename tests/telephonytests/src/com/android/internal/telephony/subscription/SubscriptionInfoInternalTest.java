@@ -175,6 +175,8 @@ public class SubscriptionInfoInternalTest {
 
     @Test
     public void testSubscriptionInfoInternalSetAndGet() {
+        assertThat(mSubInfo.getExtSimState()).isEqualTo(
+                SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1);
         assertThat(mSubInfo.getSubscriptionId()).isEqualTo(1);
         assertThat(mSubInfo.getIccId()).isEqualTo(SubscriptionDatabaseManagerTest.FAKE_ICCID1);
         assertThat(mSubInfo.getSimSlotIndex()).isEqualTo(0);
@@ -289,8 +291,6 @@ public class SubscriptionInfoInternalTest {
         assertThat(mSubInfo.getSatellitePlmnsVoiceServicePolicy())
                 .isEqualTo(SubscriptionDatabaseManagerTest
                         .FAKE_SATELLITE_ENTITLEMENT_VOICE_SERVICE_POLICY1);
-        assertThat(mSubInfo.getExtSimState()).isEqualTo(
-                SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1);
     }
 
     @Test
