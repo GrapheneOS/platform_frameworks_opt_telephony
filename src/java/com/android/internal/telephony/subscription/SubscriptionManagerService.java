@@ -19,7 +19,6 @@ package com.android.internal.telephony.subscription;
 import static android.content.pm.PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION;
 import static android.telephony.TelephonyManager.ENABLE_FEATURE_MAPPING;
 import static com.android.internal.telephony.nano.ExtSimStateProto.ExtSimState;
-import static com.android.internal.telephony.nano.ExtSimStateProto.CarrierConfig;
 
 import android.Manifest;
 import android.annotation.CallbackExecutor;
@@ -128,6 +127,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -4595,25 +4596,12 @@ public class SubscriptionManagerService extends ISub.Stub {
         }
     }
 
-    @Override
-    @EnforcePermission(Manifest.permission.MODIFY_PHONE_STATE)
-    public boolean setExtOverrideConfigs(int subId, @Nullable PersistableBundle overrides) {
-        enforcePermissions("setExtOverrideConfigs", Manifest.permission.MODIFY_PHONE_STATE);
-        enforceTelephonyFeatureWithException(getCurrentPackageName(), "setExtOverrideConfigs");
-
+    public boolean setExtCarrierConfigOverrides(int subId, @Nullable PersistableBundle overrides) {
         if (overrides != null && overrides.size() > MAX_CONFIG_OVERRIDES) {
             throw new IllegalArgumentException("too many overrides");
         }
 
-        final SubscriptionInfoInternal subInfo;
-        {
-            final long token = Binder.clearCallingIdentity();
-            try {
-                subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
-            } finally {
-                Binder.restoreCallingIdentity(token);
-            }
-        }
+        final SubscriptionInfoInternal subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
         if (subInfo == null) {
             loge("No SubscriptionInfo found for subId=" + subId);
             return false;
@@ -4634,38 +4622,23 @@ public class SubscriptionManagerService extends ISub.Stub {
         }
 
         if (overrides != null) {
-            state.overrideConfigs = bundleToCarrierConfig(overrides);
+            state.overrideConfigs = bundleToBytes(overrides);
         } else {
-            state.overrideConfigs = null;
+            state.overrideConfigs = new byte[0];
         }
 
-        {
-            final long token = Binder.clearCallingIdentity();
-            try {
-                mSubscriptionDatabaseManager.setExtSimState(subId,
-                        Base64.encodeToString(ExtSimState.toByteArray(state), Base64.DEFAULT));
-            } finally {
-                Binder.restoreCallingIdentity(token);
-            }
-        }
+        mSubscriptionDatabaseManager.setExtSimState(subId,
+                Base64.encodeToString(ExtSimState.toByteArray(state), Base64.DEFAULT));
         return true;
     }
 
-    @Override
     @Nullable
-    @EnforcePermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
-    public PersistableBundle getExtOverrideConfigs(int subId) {
-        enforcePermissions("getExtOverrideConfigs", Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
-        enforceTelephonyFeatureWithException(getCurrentPackageName(), "getExtOverrideConfigs");
-
-        final SubscriptionInfoInternal subInfo;
-        final long token = Binder.clearCallingIdentity();
-        try {
-            subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
-        } finally {
-            Binder.restoreCallingIdentity(token);
+    public PersistableBundle getExtCarrierConfigOverrides(int subId) {
+        final SubscriptionInfoInternal subInfo = mSubscriptionDatabaseManager.getSubscriptionInfoInternal(subId);
+        if (subInfo == null) {
+            return null;
         }
-        if (subInfo == null || subInfo.getExtSimState().isEmpty()) {
+        if (subInfo.getExtSimState().isEmpty()) {
             return null;
         }
 
@@ -4676,82 +4649,33 @@ public class SubscriptionManagerService extends ISub.Stub {
             loge("getExtOverrideConfigs parse error: " + e.getMessage());
             return null;
         }
-        if (state.overrideConfigs == null) return null;
-
-        return carrierConfigToBundle(state.overrideConfigs);
-    }
-
-    private static PersistableBundle carrierConfigToBundle(CarrierConfig cc) {
-        var bundle = new PersistableBundle(cc.config.length);
-        String TAG = "carrierConfigToBundle";
-        for (CarrierConfig.Config c : cc.config) {
-            String k = c.key;
-            if (c.hasTextValue()) {
-                bundle.putString(k, c.getTextValue());
-            } else if (c.hasIntValue()) {
-                bundle.putInt(k, c.getIntValue());
-            } else if (c.hasLongValue()) {
-                bundle.putLong(k, c.getLongValue());
-            } else if (c.hasBoolValue()){
-                bundle.putBoolean(k, c.getBoolValue());
-            } else if (c.hasTextArray()) {
-                bundle.putStringArray(k, c.getTextArray().item);
-            } else if (c.hasIntArray()) {
-                bundle.putIntArray(k, c.getIntArray().item);
-            } else if (c.hasBundle()) {
-                var innerBundle = carrierConfigToBundle(c.getBundle());
-                bundle.putPersistableBundle(k, innerBundle);
-            } else if (c.hasDoubleValue()) {
-                bundle.putDouble(k, c.getDoubleValue());
-            } else {
-                Log.d(TAG, "missing value for key " + k);
-            }
-        }
-        return bundle;
-    }
-
-    public static CarrierConfig bundleToCarrierConfig(PersistableBundle bundle) {
-        if (bundle == null || bundle.isEmpty()) {
+        if (state.overrideConfigs.length == 0) {
             return null;
         }
-        String TAG = "bundleToCarrierConfig";
-        final var configs = new ArrayList<CarrierConfig.Config>(bundle.size());
-        for (String key : bundle.keySet()) {
-            Object v = bundle.get(key);
-            final var entry = new CarrierConfig.Config();
-            entry.key = key;
-            if (v instanceof String x) {
-                entry.setTextValue(x);
-            } else if (v instanceof Integer x) {
-                entry.setIntValue(x);
-            } else if (v instanceof Long x) {
-                entry.setLongValue(x);
-            } else if (v instanceof Boolean x) {
-                entry.setBoolValue(x);
-            } else if (v instanceof String[] arr) {
-                var arrProto = new ExtSimStateProto.TextArray();
-                arrProto.item = Arrays.copyOf(arr, arr.length);
-                entry.setTextArray(arrProto);
-            } else if (v instanceof int[] arr) {
-                var arrProto = new ExtSimStateProto.IntArray();
-                arrProto.item = Arrays.copyOf(arr, arr.length);
-                entry.setIntArray(arrProto);
-            } else if (v instanceof Double x) {
-                entry.setDoubleValue(x);
-            } else if (v instanceof PersistableBundle x) {
-                entry.setBundle(bundleToCarrierConfig(x));
-            } else if (v == null) {
-                Log.d(TAG, "missing value for key " + key);
-                continue;
-            } else {
-                Log.d(TAG, "unsupported type " + v.getClass().getName() + " for key " + key );
-                continue;
-            }
-            configs.add(entry);
+
+        var res = bundleFromBytes(state.overrideConfigs);
+        return res;
+    }
+
+    @Nullable
+    private PersistableBundle bundleFromBytes(byte[] bytes) {
+        var bis = new ByteArrayInputStream(bytes);
+        try {
+            return PersistableBundle.readFromStream(bis);
+        } catch (IOException e) {
+            loge("bundleFromBytes failed: " + Log.getStackTraceString(e));
+            return null;
         }
-        final CarrierConfig cfg = new CarrierConfig();
-        cfg.config = configs.toArray(CarrierConfig.Config[]::new);
-        return cfg;
+    }
+
+    public static byte[] bundleToBytes(PersistableBundle bundle) {
+        var bos = new ByteArrayOutputStream();
+        try {
+            bundle.writeToStream(bos);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return bos.toByteArray();
     }
 
     /**
