@@ -80,6 +80,8 @@ public class SubscriptionInfoInternal {
      */
     private final int mId;
 
+    @NonNull private final String mExtSimState;
+
     /**
      * The ICCID of the SIM that is associated with this subscription, empty if unknown.
      */
@@ -535,8 +537,6 @@ public class SubscriptionInfoInternal {
      */
     @NonNull private final String mSatellitePlmnsVoiceServicePolicy;
 
-    @NonNull private final String mExtSimState;
-
     /**
      * Constructor from builder.
      *
@@ -643,6 +643,11 @@ public class SubscriptionInfoInternal {
     @NonNull
     public String getIccId() {
         return mIccId;
+    }
+
+    @NonNull
+    public String getExtSimState() {
+        return mExtSimState;
     }
 
     /**
@@ -1388,11 +1393,6 @@ public class SubscriptionInfoInternal {
         return mSatellitePlmnsVoiceServicePolicy;
     }
 
-    @NonNull
-    public String getExtSimState() {
-        return mExtSimState;
-    }
-
     /** @return converted {@link SubscriptionInfo}. */
     @NonNull
     public SubscriptionInfo toSubscriptionInfo() {
@@ -1439,6 +1439,7 @@ public class SubscriptionInfoInternal {
     @Override
     public String toString() {
         return "[SubscriptionInfoInternal: id=" + mId
+                + " mExtSimState=" + mExtSimState
                 + " iccId=" + SubscriptionInfo.getPrintableId(mIccId)
                 + " simSlotIndex=" + mSimSlotIndex
                 + " portIndex=" + mPortIndex
@@ -1504,7 +1505,6 @@ public class SubscriptionInfoInternal {
                 + " mSatelliteEntitlementServicesForPlmn=" + mSatelliteEntitlementServicesForPlmn
                 + " mSatellitePlmnsDataServicePolicy=" + mSatellitePlmnsDataServicePolicy
                 + " mSatellitePlmnsVoiceServicePolicy=" + mSatellitePlmnsVoiceServicePolicy
-                + " mExtSimState=" + mExtSimState
                 + "]";
     }
 
@@ -1517,6 +1517,7 @@ public class SubscriptionInfoInternal {
      */
     public boolean equalsDbItemsOnly(@NonNull SubscriptionInfoInternal that) {
         return mId == that.mId && mSimSlotIndex == that.mSimSlotIndex
+                && mExtSimState.equals(that.mExtSimState)
                 && mDisplayNameSource == that.mDisplayNameSource && mIconTint == that.mIconTint
                 && mDataRoaming == that.mDataRoaming && mIsEmbedded == that.mIsEmbedded
                 && mIsRemovableEmbedded == that.mIsRemovableEmbedded
@@ -1578,8 +1579,7 @@ public class SubscriptionInfoInternal {
                 && mSatelliteEntitlementServicesForPlmn.equals(
                 that.mSatelliteEntitlementServicesForPlmn)
                 && mSatellitePlmnsDataServicePolicy.equals(that.mSatellitePlmnsDataServicePolicy)
-                && mSatellitePlmnsVoiceServicePolicy.equals(that.mSatellitePlmnsVoiceServicePolicy)
-                && mExtSimState.equals(that.mExtSimState);
+                && mSatellitePlmnsVoiceServicePolicy.equals(that.mSatellitePlmnsVoiceServicePolicy);
     }
 
     @Override
@@ -1626,6 +1626,12 @@ public class SubscriptionInfoInternal {
      * The builder class of {@link SubscriptionInfoInternal}.
      */
     public static class Builder {
+        /**
+         * The extended SIM state
+         */
+        @NonNull
+        private String mExtSimState = "";
+
         /**
          * The subscription id.
          */
@@ -2067,12 +2073,6 @@ public class SubscriptionInfoInternal {
         @NonNull
         private String mSatellitePlmnsVoiceServicePolicy = "";
 
-        /**
-         * The extended SIM state
-         */
-        @NonNull
-        private String mExtSimState = "";
-
 
         /**
          * Default constructor.
@@ -2177,6 +2177,18 @@ public class SubscriptionInfoInternal {
         @NonNull
         public Builder setId(int id) {
             mId = id;
+            return this;
+        }
+
+        /**
+         * Set the extended sim state for this subscription.
+         *
+         * @param extSimState The extended sim state for this subscription.
+         * @return The builder.
+         */
+        @NonNull
+        public Builder setExtSimState(@Nullable String extSimState) {
+            mExtSimState = extSimState != null ? extSimState : "";
             return this;
         }
 
@@ -3235,18 +3247,6 @@ public class SubscriptionInfoInternal {
         public Builder setSatellitePlmnsVoiceServicePolicy(
                 @NonNull String satellitePlmnsVoiceServicePolicy) {
             mSatellitePlmnsVoiceServicePolicy = satellitePlmnsVoiceServicePolicy;
-            return this;
-        }
-
-        /**
-         * Set the extended sim state for this subscription.
-         *
-         * @param extSimState The extended sim state for this subscription.
-         * @return The builder.
-         */
-        @NonNull
-        public Builder setExtSimState(@Nullable String extSimState) {
-            mExtSimState = extSimState != null ? extSimState : "";
             return this;
         }
     }
