@@ -35,6 +35,8 @@ import java.util.Set;
 public class SubscriptionInfoInternalTest {
     private final SubscriptionInfoInternal mSubInfo =
             new SubscriptionInfoInternal.Builder()
+                    .setExtSimState(
+                            SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1)
                     .setId(1)
                     .setIccId(SubscriptionDatabaseManagerTest.FAKE_ICCID1)
                     .setSimSlotIndex(0)
@@ -287,6 +289,8 @@ public class SubscriptionInfoInternalTest {
         assertThat(mSubInfo.getSatellitePlmnsVoiceServicePolicy())
                 .isEqualTo(SubscriptionDatabaseManagerTest
                         .FAKE_SATELLITE_ENTITLEMENT_VOICE_SERVICE_POLICY1);
+        assertThat(mSubInfo.getExtSimState()).isEqualTo(
+                SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1);
     }
 
     @Test
