@@ -2501,6 +2501,8 @@ public class SubscriptionDatabaseManager extends Handler {
         }
 
         builder.setCardId(publicCardId)
+                .setExtSimState(cursor.getString(cursor
+                        .getColumnIndexOrThrow(SimInfo.COLUMN_EXT_SIM_STATE)))
                 .setRemovableEmbedded(cursor.getInt(cursor.getColumnIndexOrThrow(
                         SimInfo.COLUMN_IS_REMOVABLE)))
                 .setCellBroadcastExtremeThreatAlertEnabled(cursor.getInt(cursor
@@ -2633,9 +2635,6 @@ public class SubscriptionDatabaseManager extends Handler {
             builder.setSatelliteESOSSupported(cursor.getInt(
                     cursor.getColumnIndexOrThrow(SimInfo.COLUMN_SATELLITE_ESOS_SUPPORTED)));
         }
-
-        builder.setExtSimState(cursor.getString(
-                cursor.getColumnIndexOrThrow(SimInfo.COLUMN_EXT_SIM_STATE)));
 
         return builder.build();
     }
