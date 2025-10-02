@@ -63,6 +63,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -71,6 +72,9 @@ import java.util.concurrent.Executor;
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class SubscriptionDatabaseManagerTest extends TelephonyTest {
+
+    static final String FAKE_EXT_SIM_STATE1 = "s1";
+    static final String FAKE_EXT_SIM_STATE2 = "s2";
 
     static final String FAKE_DEFAULT_CARD_NAME = "CARD %d";
     static final String FAKE_ICCID1 = "123456";
@@ -163,6 +167,7 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
 
     static final SubscriptionInfoInternal FAKE_SUBSCRIPTION_INFO1 =
             new SubscriptionInfoInternal.Builder()
+                    .setExtSimState(FAKE_EXT_SIM_STATE1)
                     .setId(1)
                     .setIccId(FAKE_ICCID1)
                     .setSimSlotIndex(0)
@@ -240,6 +245,7 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
 
     static final SubscriptionInfoInternal FAKE_SUBSCRIPTION_INFO2 =
             new SubscriptionInfoInternal.Builder()
+                    .setExtSimState(FAKE_EXT_SIM_STATE2)
                     .setId(2)
                     .setIccId(FAKE_ICCID2)
                     .setSimSlotIndex(1)
@@ -2103,6 +2109,13 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
         // Two subs are now in the same group
         mDatabaseManagerUT.setGroupUuid(2, FAKE_UUID1);
 
+        // extSimState is also in group update list
+        mDatabaseManagerUT.setExtSimState(1, FAKE_EXT_SIM_STATE1);
+        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(1)
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
+        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(2)
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE1);
+
         mDatabaseManagerUT.setWifiCallingEnabled(1, 1);
         assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(1)
                 .isWifiCallingEnabled()).isTrue();
@@ -2576,5 +2589,39 @@ public class SubscriptionDatabaseManagerTest extends TelephonyTest {
                 FAKE_SUBSCRIPTION_INFO1.getSubscriptionId())
                 .getSatellitePlmnsVoiceServicePolicy()).isEqualTo(
                 FAKE_SATELLITE_ENTITLEMENT_VOICE_SERVICE_POLICY2);
+    }
+
+    @Test
+    public void testUpdateExtSimState() throws Exception {
+        // exception is expected if there is nothing in the database.
+        assertThrows(IllegalArgumentException.class,
+                () -> mDatabaseManagerUT.setExtSimState(
+                        FAKE_SUBSCRIPTION_INFO1.getSubscriptionId(),
+                        FAKE_EXT_SIM_STATE1));
+
+        SubscriptionInfoInternal subInfo = insertSubscriptionAndVerify(FAKE_SUBSCRIPTION_INFO1);
+        mDatabaseManagerUT.setExtSimState(
+                FAKE_SUBSCRIPTION_INFO1.getSubscriptionId(),
+                FAKE_EXT_SIM_STATE1);
+        processAllMessages();
+
+        subInfo = new SubscriptionInfoInternal.Builder(subInfo)
+                .setExtSimState(FAKE_EXT_SIM_STATE1)
+                .build();
+        verifySubscription(subInfo);
+        verify(mSubscriptionDatabaseManagerCallback, times(2))
+                .onSubscriptionChanged(eq(1));
+
+        assertThat(mDatabaseManagerUT.getSubscriptionProperty(
+                FAKE_SUBSCRIPTION_INFO1.getSubscriptionId(),
+                SimInfo.COLUMN_EXT_SIM_STATE)).isEqualTo(
+                FAKE_EXT_SIM_STATE1);
+
+        mDatabaseManagerUT.setSubscriptionProperty(FAKE_SUBSCRIPTION_INFO1.getSubscriptionId(),
+                SimInfo.COLUMN_EXT_SIM_STATE,
+                FAKE_EXT_SIM_STATE2);
+        assertThat(mDatabaseManagerUT.getSubscriptionInfoInternal(
+                        FAKE_SUBSCRIPTION_INFO1.getSubscriptionId())
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE2);
     }
 }

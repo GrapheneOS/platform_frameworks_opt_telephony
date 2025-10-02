@@ -1,0 +1,10 @@
+syntax = "proto2";
+
+package telephonyExtSimState;
+
+option java_package = "com.android.internal.telephony";
+option java_outer_classname = "ExtSimStateProto";
+
+message ExtSimState {
+  optional bytes override_configs = 1;
+}

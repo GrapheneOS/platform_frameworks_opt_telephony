@@ -35,6 +35,8 @@ import java.util.Set;
 public class SubscriptionInfoInternalTest {
     private final SubscriptionInfoInternal mSubInfo =
             new SubscriptionInfoInternal.Builder()
+                    .setExtSimState(
+                            SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1)
                     .setId(1)
                     .setIccId(SubscriptionDatabaseManagerTest.FAKE_ICCID1)
                     .setSimSlotIndex(0)
@@ -173,6 +175,8 @@ public class SubscriptionInfoInternalTest {
 
     @Test
     public void testSubscriptionInfoInternalSetAndGet() {
+        assertThat(mSubInfo.getExtSimState()).isEqualTo(
+                SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1);
         assertThat(mSubInfo.getSubscriptionId()).isEqualTo(1);
         assertThat(mSubInfo.getIccId()).isEqualTo(SubscriptionDatabaseManagerTest.FAKE_ICCID1);
         assertThat(mSubInfo.getSimSlotIndex()).isEqualTo(0);

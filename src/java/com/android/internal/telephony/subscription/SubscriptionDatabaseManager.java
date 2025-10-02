@@ -100,6 +100,9 @@ public class SubscriptionDatabaseManager extends Handler {
     private static final Map<String, Function<SubscriptionInfoInternal, ?>>
             SUBSCRIPTION_GET_METHOD_MAP = Map.ofEntries(
             new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_EXT_SIM_STATE,
+                    SubscriptionInfoInternal::getExtSimState),
+            new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_UNIQUE_KEY_SUBSCRIPTION_ID,
                     SubscriptionInfoInternal::getSubscriptionId),
             new AbstractMap.SimpleImmutableEntry<>(
@@ -476,6 +479,9 @@ public class SubscriptionDatabaseManager extends Handler {
     private static final Map<String, TriConsumer<SubscriptionDatabaseManager, Integer, String>>
             SUBSCRIPTION_SET_STRING_METHOD_MAP = Map.ofEntries(
             new AbstractMap.SimpleImmutableEntry<>(
+                    SimInfo.COLUMN_EXT_SIM_STATE,
+                    SubscriptionDatabaseManager::setExtSimState),
+            new AbstractMap.SimpleImmutableEntry<>(
                     SimInfo.COLUMN_ICC_ID,
                     SubscriptionDatabaseManager::setIccId),
             new AbstractMap.SimpleImmutableEntry<>(
@@ -574,6 +580,7 @@ public class SubscriptionDatabaseManager extends Handler {
      * @see SubscriptionManager#getSubscriptionsInGroup(ParcelUuid)
      */
     private static final Set<String> GROUP_SHARING_COLUMNS = Set.of(
+            SimInfo.COLUMN_EXT_SIM_STATE,
             SimInfo.COLUMN_DISPLAY_NAME,
             SimInfo.COLUMN_NAME_SOURCE,
             SimInfo.COLUMN_COLOR,
@@ -2349,6 +2356,13 @@ public class SubscriptionDatabaseManager extends Handler {
                 SubscriptionInfoInternal.Builder::setSatellitePlmnsVoiceServicePolicy);
     }
 
+    public void setExtSimState(int subId, @NonNull String extSimState) {
+        writeDatabaseAndCacheHelper(subId,
+                SimInfo.COLUMN_EXT_SIM_STATE,
+                extSimState,
+                SubscriptionInfoInternal.Builder::setExtSimState);
+    }
+
     /**
      * Reload the database from content provider to the cache. This must be a synchronous operation
      * to prevent cache/database out-of-sync. Callers should be cautious to call this method because
@@ -2434,6 +2448,7 @@ public class SubscriptionDatabaseManager extends Handler {
         int id = cursor.getInt(cursor.getColumnIndexOrThrow(
                 SimInfo.COLUMN_UNIQUE_KEY_SUBSCRIPTION_ID));
         builder.setId(id)
+                .setExtSimState(cursor.getString(cursor.getColumnIndexOrThrow(SimInfo.COLUMN_EXT_SIM_STATE)))
                 .setIccId(TextUtils.emptyIfNull(cursor.getString(cursor.getColumnIndexOrThrow(
                         SimInfo.COLUMN_ICC_ID))))
                 .setSimSlotIndex(cursor.getInt(cursor.getColumnIndexOrThrow(

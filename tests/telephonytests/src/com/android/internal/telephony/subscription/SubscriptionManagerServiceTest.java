@@ -25,6 +25,8 @@ import static com.android.internal.telephony.subscription.SubscriptionDatabaseMa
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_COUNTRY_CODE2;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_DEFAULT_CARD_NAME;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_EHPLMNS1;
+import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE1;
+import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_EXT_SIM_STATE2;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_HPLMNS1;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_ICCID1;
 import static com.android.internal.telephony.subscription.SubscriptionDatabaseManagerTest.FAKE_ICCID2;
@@ -2409,6 +2411,10 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
         assertThat(mSubscriptionManagerServiceUT.getSubscriptionInfoInternal(2)
                 .getUserId()).isEqualTo(mSubscriptionManagerServiceUT
                 .getSubscriptionInfoInternal(1).getUserId());
+
+        assertThat(mSubscriptionManagerServiceUT.getSubscriptionInfoInternal(2)
+                .getExtSimState()).isEqualTo(mSubscriptionManagerServiceUT
+                .getSubscriptionInfoInternal(1).getExtSimState());
     }
 
     @Test
@@ -3604,6 +3610,33 @@ public class SubscriptionManagerServiceTest extends TelephonyTest {
 
     public void testIsSatelliteProvisionedForNonIpDatagram() {
         assertFalse(mSubscriptionManagerServiceUT.isSatelliteProvisionedForNonIpDatagram(-1));
+    }
+
+    @Test
+    @EnableCompatChanges({TelephonyManager.ENABLE_FEATURE_MAPPING})
+    public void testSetGetExtSimStateConfig() {
+        insertSubscription(FAKE_SUBSCRIPTION_INFO1);
+
+        assertThrows(SecurityException.class, () ->
+                mSubscriptionManagerServiceUT.getSubscriptionProperty(1,
+                        SimInfo.COLUMN_EXT_SIM_STATE, CALLING_PACKAGE, CALLING_FEATURE));
+
+        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+        assertThat(mSubscriptionManagerServiceUT.getSubscriptionProperty(1,
+                SimInfo.COLUMN_EXT_SIM_STATE, CALLING_PACKAGE, CALLING_FEATURE))
+                .isEqualTo(FAKE_EXT_SIM_STATE1);
+
+        assertThrows(SecurityException.class, () -> mSubscriptionManagerServiceUT
+                .setSubscriptionProperty(1, SimInfo.COLUMN_EXT_SIM_STATE, "0"));
+
+        mContextFixture.addCallingOrSelfPermission(Manifest.permission.MODIFY_PHONE_STATE);
+
+        // COLUMN_EXT_SIM_STATE
+        mSubscriptionManagerServiceUT.setSubscriptionProperty(1,
+                SimInfo.COLUMN_EXT_SIM_STATE,
+                FAKE_EXT_SIM_STATE2);
+        assertThat(mSubscriptionManagerServiceUT.getSubscriptionInfoInternal(1)
+                .getExtSimState()).isEqualTo(FAKE_EXT_SIM_STATE2);
     }
 
     /**
