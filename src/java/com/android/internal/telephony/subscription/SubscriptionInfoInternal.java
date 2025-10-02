@@ -33,6 +33,7 @@ package com.android.internal.telephony.subscription;
 
 import android.annotation.ColorInt;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.os.UserHandle;
 import android.provider.Telephony.SimInfo;
@@ -534,12 +535,16 @@ public class SubscriptionInfoInternal {
      */
     @NonNull private final String mSatellitePlmnsVoiceServicePolicy;
 
+    @NonNull private final String mExtSimState;
+
     /**
      * Constructor from builder.
      *
      * @param builder Builder of {@link SubscriptionInfoInternal}.
      */
     private SubscriptionInfoInternal(@NonNull Builder builder) {
+        this.mExtSimState = builder.mExtSimState;
+
         this.mId = builder.mId;
         this.mIccId = builder.mIccId;
         this.mSimSlotIndex = builder.mSimSlotIndex;
@@ -1383,6 +1388,11 @@ public class SubscriptionInfoInternal {
         return mSatellitePlmnsVoiceServicePolicy;
     }
 
+    @NonNull
+    public String getExtSimState() {
+        return mExtSimState;
+    }
+
     /** @return converted {@link SubscriptionInfo}. */
     @NonNull
     public SubscriptionInfo toSubscriptionInfo() {
@@ -1494,6 +1504,7 @@ public class SubscriptionInfoInternal {
                 + " mSatelliteEntitlementServicesForPlmn=" + mSatelliteEntitlementServicesForPlmn
                 + " mSatellitePlmnsDataServicePolicy=" + mSatellitePlmnsDataServicePolicy
                 + " mSatellitePlmnsVoiceServicePolicy=" + mSatellitePlmnsVoiceServicePolicy
+                + " mExtSimState=" + mExtSimState
                 + "]";
     }
 
@@ -1567,7 +1578,8 @@ public class SubscriptionInfoInternal {
                 && mSatelliteEntitlementServicesForPlmn.equals(
                 that.mSatelliteEntitlementServicesForPlmn)
                 && mSatellitePlmnsDataServicePolicy.equals(that.mSatellitePlmnsDataServicePolicy)
-                && mSatellitePlmnsVoiceServicePolicy.equals(that.mSatellitePlmnsVoiceServicePolicy);
+                && mSatellitePlmnsVoiceServicePolicy.equals(that.mSatellitePlmnsVoiceServicePolicy)
+                && mExtSimState.equals(that.mExtSimState);
     }
 
     @Override
@@ -1581,7 +1593,7 @@ public class SubscriptionInfoInternal {
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(mId, mIccId, mSimSlotIndex, mDisplayName, mCarrierName,
+        int result = Objects.hash(mExtSimState, mId, mIccId, mSimSlotIndex, mDisplayName, mCarrierName,
                 mDisplayNameSource, mIconTint, mNumber, mDataRoaming, mMcc, mMnc, mEhplmns, mHplmns,
                 mIsEmbedded, mCardString, mIsRemovableEmbedded, mIsExtremeThreatAlertEnabled,
                 mIsSevereThreatAlertEnabled, mIsAmberAlertEnabled, mIsEmergencyAlertEnabled,
@@ -2055,6 +2067,12 @@ public class SubscriptionInfoInternal {
         @NonNull
         private String mSatellitePlmnsVoiceServicePolicy = "";
 
+        /**
+         * The extended SIM state
+         */
+        @NonNull
+        private String mExtSimState = "";
+
 
         /**
          * Default constructor.
@@ -2068,6 +2086,8 @@ public class SubscriptionInfoInternal {
          * @param info The subscription info.
          */
         public Builder(@NonNull SubscriptionInfoInternal info) {
+            mExtSimState = info.mExtSimState;
+
             mId = info.mId;
             mIccId = info.mIccId;
             mSimSlotIndex = info.mSimSlotIndex;
@@ -3215,6 +3235,18 @@ public class SubscriptionInfoInternal {
         public Builder setSatellitePlmnsVoiceServicePolicy(
                 @NonNull String satellitePlmnsVoiceServicePolicy) {
             mSatellitePlmnsVoiceServicePolicy = satellitePlmnsVoiceServicePolicy;
+            return this;
+        }
+
+        /**
+         * Set the extended sim state for this subscription.
+         *
+         * @param extSimState The extended sim state for this subscription.
+         * @return The builder.
+         */
+        @NonNull
+        public Builder setExtSimState(@Nullable String extSimState) {
+            mExtSimState = extSimState != null ? extSimState : "";
             return this;
         }
     }
