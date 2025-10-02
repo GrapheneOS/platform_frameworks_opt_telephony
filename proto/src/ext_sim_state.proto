@@ -1,0 +1,41 @@
+syntax = "proto2";
+
+package telephonyExtSimState;
+
+option java_package = "com.android.internal.telephony";
+option java_outer_classname = "ExtSimStateProto";
+
+// An array of text
+message TextArray {
+  repeated string item = 1;
+}
+
+// An array of int
+message IntArray {
+  repeated int32 item = 1;
+}
+
+message CarrierConfig {
+  // Key-Value pair as a config entry
+  message Config {
+    optional string key = 1;
+
+    oneof value {
+      string text_value = 2;
+      int32 int_value = 3;
+      int64 long_value = 4;
+      bool bool_value = 5;
+      TextArray text_array = 6;
+      IntArray int_array = 7;
+      CarrierConfig bundle = 8;
+      double double_value = 9;
+    }
+  }
+
+  // Key-value pairs, holding all config entries
+  repeated Config config = 1;
+}
+
+message ExtSimState {
+  optional CarrierConfig override_configs = 1;
+}
