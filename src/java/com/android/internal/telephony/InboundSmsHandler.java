@@ -1568,7 +1568,7 @@ public abstract class InboundSmsHandler extends StateMachine {
                             user);
                 } else {
                     sendBroadcastToTrustedPackages(intent, permission, appOp, opts,
-                            resultReceiver, user, getOtpTrustedPackagesFromTextLinks(textLinks));
+                            resultReceiver, user, getOtpTrustedPackagesFromTextLinks(textLinks, user));
                 }
             } else {
                 sendBroadcastWithStandardPermissions(intent, permission, appOp, opts,
@@ -1689,13 +1689,17 @@ public abstract class InboundSmsHandler extends StateMachine {
     // was matched to a specific app. This method extracts and returns the package name for that
     // intended app from the TextClassifier response.
     @Nullable
-    private static String getSmsRetrieverTargetPackageNameFromTextLinks(
-            @NonNull Collection<TextLinks.TextLink> links) {
+    private List<String> getSmsRetrieverTargetPackageNamesFromTextLinks(
+            @NonNull Collection<TextLinks.TextLink> links, @NonNull UserHandle user) {
         for (TextLinks.TextLink link : links) {
             for (int i = 0; i < link.getEntityCount(); i++) {
                 if (link.getEntity(i).equals(TextClassifier.TYPE_SMS_RETRIEVER_OTP)) {
-                    return link.getExtras().getString(
+                    String pkgName = link.getExtras().getString(
                             TextClassifier.EXTRA_SMS_RETRIEVER_HASH_MATCHED_PACKAGE);
+                    if (pkgName == null) {
+                        return null;
+                    }
+                    return InboundSmsHandlerExt.processSmsRetrieverMatchedPackage(mContext, user, pkgName);
                 }
             }
         }
@@ -1731,13 +1735,13 @@ public abstract class InboundSmsHandler extends StateMachine {
     // Returns an empty list if there are no additional trusted packages.
     // NOTE: The returned list may contain duplicated packages.
     @VisibleForTesting
-    public static List<String> getOtpTrustedPackagesFromTextLinks(
-            @NonNull Collection<TextLinks.TextLink> links) {
+    public List<String> getOtpTrustedPackagesFromTextLinks(
+            @NonNull Collection<TextLinks.TextLink> links, @NonNull UserHandle user) {
         List<String> additionalTrustedPackageNames = new ArrayList<>();
         // We allow the SMS Retriever Hash owner to receive the SMS broadcast.
-        String smsRetrieverTargetPackageName = getSmsRetrieverTargetPackageNameFromTextLinks(links);
-        if (smsRetrieverTargetPackageName != null) {
-            additionalTrustedPackageNames.add(smsRetrieverTargetPackageName);
+        List<String> smsRetrieverTargetPackageNames = getSmsRetrieverTargetPackageNamesFromTextLinks(links, user);
+        if (smsRetrieverTargetPackageNames != null) {
+            additionalTrustedPackageNames.addAll(smsRetrieverTargetPackageNames);
         }
         // We allow domain owners of the corresponding Web OTPs to receive the SMS broadcast.
         List<String> webOtpOwnerPackages = getWebOtpOwnerPackagesFromTextLinks(links);
@@ -1764,6 +1768,7 @@ public abstract class InboundSmsHandler extends StateMachine {
             @Nullable List<String> additionalTrustedPackages) {
         Set<String> trustedPackages = SmsManager.getSmsOtpTrustedPackages(mContext, user);
         if (additionalTrustedPackages != null) {
+            logd("sendBroadcastToTrustedPackages: additionalTrustedPackages: " + Arrays.toString(additionalTrustedPackages.toArray()));
             trustedPackages.addAll(additionalTrustedPackages);
         }
         final String[] trustedPackagesArray = new String[trustedPackages.size()];
