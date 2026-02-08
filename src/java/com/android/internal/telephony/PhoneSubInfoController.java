@@ -20,6 +20,7 @@ package com.android.internal.telephony;
 
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.telephony.TelephonyManager.ENABLE_FEATURE_MAPPING;
 
 import android.annotation.NonNull;
@@ -368,6 +369,12 @@ public class PhoneSubInfoController extends IPhoneSubInfo.Stub {
             return true;
         }
         if (VDBG) log("No USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER permission.");
+        if (TelephonyPermissions.checkCallingOrSelfUseIccAuthWithDeviceIdentifierGmsCore(context,
+                callingPackage, callingFeatureId, message)) {
+            log("enforceIccSimChallengeResponsePermission: "
+                    + "USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER_GMSCORE passed for " + callingPackage);
+            return true;
+        }
         enforcePrivilegedPermissionOrCarrierPrivilege(subId, message);
         return true;
     }
