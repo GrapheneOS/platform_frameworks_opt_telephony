@@ -1104,6 +1104,9 @@ public class SatelliteController extends Handler {
 
         mAlarmManager = mContext.getSystemService(AlarmManager.class);
         scheduleRegularMetricReportTimer();
+        if (!mSatelliteModemInterface.isSatelliteServiceSupported()) {
+            notifyInitialSatelliteDisabledState("SatelliteController constructor");
+        }
         logd("Satellite Tracker is created");
     }
 
@@ -1791,7 +1794,7 @@ public class SatelliteController extends Handler {
                         updateSatelliteEnabledState(enabled, "EVENT_IS_SATELLITE_ENABLED_DONE");
                     }
                 } else if (error == SatelliteManager.SATELLITE_RESULT_REQUEST_NOT_SUPPORTED) {
-                    updateSatelliteSupportedState(false);
+                    updateSatelliteUnsupportedState("EVENT_IS_SATELLITE_ENABLED_DONE");
                 }
                 ((ResultReceiver) request.argument).send(error, bundle);
                 decrementResultReceiverCount("SC:requestIsSatelliteEnabled");
@@ -1818,7 +1821,11 @@ public class SatelliteController extends Handler {
                         boolean supported = (boolean) ar.result;
                         plogd("isSatelliteSupported: " + supported);
                         bundle.putBoolean(SatelliteManager.KEY_SATELLITE_SUPPORTED, supported);
-                        updateSatelliteSupportedState(supported);
+                        if (supported) {
+                            updateSatelliteSupportedState(true);
+                        } else {
+                            updateSatelliteUnsupportedState("EVENT_IS_SATELLITE_SUPPORTED_DONE");
+                        }
                     }
                 }
                 ((ResultReceiver) request.argument).send(error, bundle);
@@ -5373,6 +5380,21 @@ public class SatelliteController extends Handler {
         notifySatelliteSupportedStateChanged(supported);
     }
 
+    private void updateSatelliteUnsupportedState(String caller) {
+        updateSatelliteSupportedState(false);
+        notifyInitialSatelliteDisabledState(caller);
+    }
+
+    private void notifyInitialSatelliteDisabledState(String caller) {
+        if (getIsSatelliteEnabled() != null) {
+            return;
+        }
+        // Seed listener replay without caching an enabled state; later requests can still query
+        // the satellite service if it becomes available.
+        notifyEnabledStateChanged(false);
+        plogd(caller + ": notified initial satellite disabled state");
+    }
+
     private void updateSatelliteEnabledState(boolean enabled, String caller) {
         setIsSatelliteEnabled(enabled);
         if (mSatelliteSessionController != null) {
@@ -5646,7 +5668,11 @@ public class SatelliteController extends Handler {
             return;
         }
 
-        updateSatelliteSupportedState(supported);
+        if (supported) {
+            updateSatelliteSupportedState(true);
+        } else {
+            updateSatelliteUnsupportedState("EVENT_SATELLITE_SUPPORTED_STATE_CHANGED");
+        }
 
         Boolean isSatelliteEnabled = getIsSatelliteEnabled();
          /* In case satellite has been reported as not support from modem, but satellite is

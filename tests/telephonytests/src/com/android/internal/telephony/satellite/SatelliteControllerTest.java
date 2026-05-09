@@ -803,6 +803,41 @@ public class SatelliteControllerTest extends TelephonyTest {
     }
 
     @Test
+    public void testNoSatelliteServiceSupported_notifiesInitialDisabledState() {
+        reset(mTelephonyRegistryManager);
+        reset(mMockSatelliteModemInterface);
+        reset(mMockSatelliteSessionController);
+        doReturn(false).when(mMockSatelliteModemInterface).isSatelliteServiceSupported();
+
+        new TestSatelliteController(mContext, Looper.myLooper(), mFeatureFlags);
+        processAllMessages();
+
+        verify(mTelephonyRegistryManager).notifySatelliteStateChanged(eq(false));
+        verify(mMockSatelliteSessionController, never())
+                .onSatelliteEnabledStateChanged(anyBoolean());
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
+        verify(mMockSatelliteModemInterface, never()).requestIsSatelliteEnabled(
+                any(Message.class));
+    }
+
+    @Test
+    public void testSatelliteNotSupported_notifiesInitialDisabledState() {
+        reset(mTelephonyRegistryManager);
+        reset(mMockSatelliteSessionController);
+        clearInvocations(mMockSatelliteModemInterface);
+        setUpResponseForRequestIsSatelliteSupported(false, SATELLITE_RESULT_SUCCESS);
+
+        verifySatelliteSupported(false, SATELLITE_RESULT_SUCCESS);
+
+        verify(mTelephonyRegistryManager).notifySatelliteStateChanged(eq(false));
+        verify(mMockSatelliteSessionController, never())
+                .onSatelliteEnabledStateChanged(anyBoolean());
+        verify(mMockSatelliteModemInterface, never()).requestSatelliteEnabled(
+                any(SatelliteModemEnableRequestAttributes.class), any(Message.class));
+    }
+
+    @Test
     public void testShouldTurnOffCarrierSatelliteForEmergencyCall() throws Exception {
         DatagramControllerTest.TestDatagramController datagramController = mock(
                 DatagramControllerTest.TestDatagramController.class);
