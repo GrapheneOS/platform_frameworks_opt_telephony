@@ -73,7 +73,7 @@ public class PackageBasedTokenUtil {
         return token;
     }
 
-    private static String generatePackageBasedToken(
+    public static String generatePackageBasedToken(
             PackageManager packageManager, String packageName) {
         Signature[] signatures;
         try {
