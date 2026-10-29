@@ -1382,7 +1382,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         setUpSpySmsDispatchers();
         IccSmsInterfaceManager iccSmsIntMgr = Mockito.mock(IccSmsInterfaceManager.class);
         doReturn(iccSmsIntMgr).when(mPhone).getIccSmsInterfaceManager();
-        when(iccSmsIntMgr.getSmscAddressFromIccEf(anyString())).thenReturn("123456");
+        when(iccSmsIntMgr.getSmscAddressFromIccEf(any(CallingPackage.class))).thenReturn("123456");
 
         byte[] pdu = IccUtils.hexStringToBytes("010203");
         mGsmSmsDispatcher.sendRawPdu("com.example.app", mCallingUserId, "5551234", "123456", pdu,
@@ -1410,7 +1410,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         setUpSpySmsDispatchers();
         IccSmsInterfaceManager iccSmsIntMgr = Mockito.mock(IccSmsInterfaceManager.class);
         doReturn(iccSmsIntMgr).when(mPhone).getIccSmsInterfaceManager();
-        when(iccSmsIntMgr.getSmscAddressFromIccEf(anyString())).thenReturn(null);
+        when(iccSmsIntMgr.getSmscAddressFromIccEf(any(CallingPackage.class))).thenReturn(null);
 
         byte[] pdu = IccUtils.hexStringToBytes("010203");
         mGsmSmsDispatcher.sendRawPdu("com.example.app", mCallingUserId, "5551234", null, pdu,
@@ -1435,7 +1435,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
 
         IccSmsInterfaceManager iccSmsIntMgr = Mockito.mock(IccSmsInterfaceManager.class);
         doReturn(iccSmsIntMgr).when(mPhone).getIccSmsInterfaceManager();
-        when(iccSmsIntMgr.getSmscAddressFromIccEf(anyString())).thenReturn("123456");
+        when(iccSmsIntMgr.getSmscAddressFromIccEf(any(CallingPackage.class))).thenReturn("123456");
 
         // Case 1: scAddr is null
         when(mImsSmsDispatcher.isAvailable()).thenReturn(true);
@@ -1458,7 +1458,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         setUpSpySmsDispatchers();
         IccSmsInterfaceManager iccSmsIntMgr = Mockito.mock(IccSmsInterfaceManager.class);
         doReturn(iccSmsIntMgr).when(mPhone).getIccSmsInterfaceManager();
-        when(iccSmsIntMgr.getSmscAddressFromIccEf(anyString())).thenReturn("123456");
+        when(iccSmsIntMgr.getSmscAddressFromIccEf(any(CallingPackage.class))).thenReturn("123456");
 
         mGsmSmsDispatcher.sendRawPdu("com.example.app", mCallingUserId, "5551234", null, null,
                 mSentIntent, null, Process.INVALID_UID);
