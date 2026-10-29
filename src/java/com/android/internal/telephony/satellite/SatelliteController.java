@@ -5739,8 +5739,9 @@ public class SatelliteController extends Handler {
     }
 
     private void updateSatelliteUnsupportedState(String caller) {
-        updateSatelliteSupportedState(false);
-        notifyInitialSatelliteDisabledState(caller);
+        if (updateSatelliteSupportedState(false)) {
+            notifyInitialSatelliteDisabledState(caller);
+        }
     }
 
     private void notifyInitialSatelliteDisabledState(String caller) {
