@@ -48,6 +48,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -1355,8 +1356,12 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
     @EnableFlags({
         android.view.flags.Flags.FLAG_REDACT_WEB_OTP_SMS_API,
         android.view.flags.Flags.FLAG_REDACT_OTP_APP_COMPAT_API})
-    public void testGetAdditionalOtpTrustedPackages() {
+    public void testGetAdditionalOtpTrustedPackages() throws Exception {
         transitionFromStartupToIdle();
+
+        doReturn(new ApplicationInfo()).when(mPackageManager)
+                .getApplicationInfoAsUser(eq("sms_retriever_package"), eq(0),
+                        eq(MOCKED_MAIN_USER));
 
         Bundle smsRetrieverOtpExtras = new Bundle();
         smsRetrieverOtpExtras.putString(
@@ -1370,7 +1375,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
             TextClassifier.EXTRA_OTP_TRUSTED_PACKAGES,
             webOtpTrustedPackages);
 
-        assertThat(InboundSmsHandler.getOtpTrustedPackagesFromTextLinks(
+        assertThat(mGsmInboundSmsHandler.getOtpTrustedPackagesFromTextLinks(
             new TextLinks.Builder("")
                 .addLink(0, 0,
                     Collections.singletonMap(TextClassifier.TYPE_SMS_RETRIEVER_OTP, 1.0f),
@@ -1378,7 +1383,7 @@ public class GsmInboundSmsHandlerTest extends TelephonyTest {
                 .addLink(0, 0,
                     Collections.singletonMap(TextClassifier.TYPE_SMS_WEB_OTP, 1.0f),
                     webOtpExtras)
-                .build().getLinks()))
+                .build().getLinks(), MOCKED_MAIN_USER))
             .containsExactly("sms_retriever_package", "web_otp_package");
     }
 
