@@ -24,11 +24,12 @@ class InboundSmsHandlerExt {
 
         if (appInfo.ext().hasFlag(AppInfoExtFlag.HAS_GMSCORE_CLIENT_LIBRARY)) {
             try {
-                if (pm.getApplicationInfoAsUser(PackageId.GMS_CORE_NAME, 0, user)
-                        .ext().getPackageId() == PackageId.GMS_CORE) {
+                ApplicationInfo gmsCoreInfo =
+                        pm.getApplicationInfoAsUser(PackageId.GMS_CORE_NAME, 0, user);
+                if (gmsCoreInfo.ext().getPackageId() == PackageId.GMS_CORE) {
 
-                    if (pm.checkPermission(android.Manifest.permission.RECEIVE_SMS,
-                            PackageId.GMS_CORE_NAME) == PackageManager.PERMISSION_GRANTED) {
+                    if (ctx.checkPermission(android.Manifest.permission.RECEIVE_SMS,
+                            -1, gmsCoreInfo.uid) == PackageManager.PERMISSION_GRANTED) {
                         // GmsCompat: allow GmsCore to read SMS OTP of its clients if GmsCore has
                         // the SMS permission
                         return List.of(pkgName, PackageId.GMS_CORE_NAME);
